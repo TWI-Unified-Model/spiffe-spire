@@ -78,7 +78,11 @@ func (s *Service) InitiateCredentialAcquisition(ctx context.Context, req *creden
 	if err != nil {
 		return nil, err
 	}
-	log = log.WithField(telemetry.SPIFFEID, entry.GetSpiffeId().String())
+	spiffeID, err := api.TrustDomainMemberIDFromProto(ctx, s.td, entry.GetSpiffeId())
+	if err != nil {
+		return nil, commonapi.MakeErr(log, codes.Internal, "entry has malformed SPIFFE ID", err)
+	}
+	log = log.WithField(telemetry.SPIFFEID, spiffeID.String())
 
 	result, err := s.acquirer.Initiate(ctx, credentialacquisition.Initiation{
 		EntryID:        req.EntryId,
@@ -220,7 +224,11 @@ func (s *Service) RetrieveCredential(ctx context.Context, req *credentialacquisi
 	if err != nil {
 		return nil, err
 	}
-	log = log.WithField(telemetry.SPIFFEID, entry.GetSpiffeId().String())
+	spiffeID, err := api.TrustDomainMemberIDFromProto(ctx, s.td, entry.GetSpiffeId())
+	if err != nil {
+		return nil, commonapi.MakeErr(log, codes.Internal, "entry has malformed SPIFFE ID", err)
+	}
+	log = log.WithField(telemetry.SPIFFEID, spiffeID.String())
 
 	container, err := s.acquirer.Retrieve(ctx, credentialacquisition.Retrieval{
 		EntryID:          req.EntryId,
