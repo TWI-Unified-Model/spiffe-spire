@@ -14,6 +14,7 @@ import (
 	loggerv1 "github.com/spiffe/spire/pkg/server/api/logger/v1"
 	"github.com/spiffe/spire/pkg/server/authpolicy"
 	bundle_client "github.com/spiffe/spire/pkg/server/bundle/client"
+	"github.com/spiffe/spire/pkg/server/credentialacquisition"
 	"github.com/spiffe/spire/pkg/server/endpoints"
 	"github.com/spiffe/spire/pkg/server/endpoints/bundle"
 	"github.com/spiffe/spire/pkg/server/plugin/keymanager"
@@ -132,6 +133,11 @@ type Config struct {
 
 	// AuthPolicyEngineConfig determines the config for authz policy
 	AuthOpaPolicyEngineConfig *authpolicy.OpaEngineConfig
+
+	// CredentialAcquisition configures the Credential Acquisition System
+	// Server of TACRA (attested credential acquisition); nil leaves the
+	// CredentialAcquisition API unserved.
+	CredentialAcquisition *credentialacquisition.Config
 
 	// AdminIDs are a list of fixed IDs that when presented by a caller in an
 	// X509-SVID, are granted admin rights.

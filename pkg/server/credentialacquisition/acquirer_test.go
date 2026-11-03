@@ -1,0 +1,412 @@
+package credentialacquisition
+
+import (
+	"context"
+	"crypto/ecdsa"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"net/http"
+	"testing"
+	"time"
+
+	"github.com/sirupsen/logrus/hooks/test"
+	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+const (
+	testTarget         = "spiffe://example.org"
+	testVaultTarget    = "https://api.example"
+	testPassportTarget = "https://passport.example"
+	testEntryID        = "entry-1"
+	testAgentID        = "spiffe://example.org/spire/agent/x509pop/abc"
+	testProfile        = "application/vnd.veraison.tsm-report+cbor"
+)
+
+type acquirerTest struct {
+	a           *Acquirer
+	verifier    *fakeVerifier
+	vault       *fakeVault
+	veraisonKey *ecdsa.PrivateKey
+	now         time.Time
+}
+
+// newAcquirerTest builds the Acquirer with a fake verifier that signs
+// affirming Attestation Results for the nonce it is asked for, with the
+// test measurement, and a fake vault.
+func newAcquirerTest(t *testing.T) *acquirerTest {
+	now := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
+	veraisonKey := newTestKey(t)
+	f := newFakeVerifier(t)
+	f.setAnswer(func(nonce, _ []byte, _ string) (string, string) {
+		return "complete", signEAR(t, veraisonKey, nonce, now, "SEVSNP", "affirming", snpCoMID(t, gcpMilan()))
+	})
+	vault := newFakeVault(t)
+	log, _ := test.NewNullLogger()
+	policies := map[string]*Policy{
+		testTarget: {Name: testTarget, Mode: ModeEnroll, CredentialTypes: []string{"x509"}, FreshnessKind: FreshnessPresentNonce,
+			ExpiresIn: 5 * time.Minute, Verifiers: []string{"veraison"}, AcceptableCSK: []string{"ecdsa-p256-sha256"},
+			Measurements: [][]byte{testMeasurement}},
+		testVaultTarget: {Name: testVaultTarget, Mode: ModeRetrieve, CredentialTypes: []string{"jwt"}, FreshnessKind: FreshnessPresentNonce,
+			ExpiresIn: 5 * time.Minute, RATSModel: ModelBackgroundCheck},
+		testPassportTarget: {Name: testPassportTarget, Mode: ModeRetrieve, CredentialTypes: []string{"api-key"}, FreshnessKind: FreshnessPresentNonce,
+			ExpiresIn: 5 * time.Minute, RATSModel: ModelPassport, Verifiers: []string{"veraison"}},
+	}
+	ear := &earVerifier{
+		keys:   []earKey{{name: "veraison", key: &veraisonKey.PublicKey, submods: []string{"SEVSNP"}}},
+		maxAge: 2 * time.Minute, skew: 5 * time.Second, now: func() time.Time { return now },
+	}
+	a := newAcquirer(log, policies, []string{testProfile}, newTestAppraiser(f), ear, newTestVaultClient(vault), func() time.Time { return now })
+	return &acquirerTest{a: a, verifier: f, vault: vault, veraisonKey: veraisonKey, now: now}
+}
+
+func requireStatus(t *testing.T, err error, code codes.Code, contains string) {
+	t.Helper()
+	require.Error(t, err)
+	require.Equal(t, code, status.Code(err), err.Error())
+	require.Contains(t, status.Convert(err).Message(), contains)
+}
+
+func TestInitiate(t *testing.T) {
+	ctx := context.Background()
+	x := newAcquirerTest(t)
+
+	t.Run("enroll target: the server mints the Handle", func(t *testing.T) {
+		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "x509"})
+		require.NoError(t, err)
+		require.Equal(t, ModeEnroll, res.Mode)
+		require.Equal(t, FreshnessPresentNonce, res.FreshnessKind)
+		require.Len(t, res.Handle, 32)
+		require.Equal(t, uint32(300), res.ExpiresIn)
+		require.Equal(t, []string{"ecdsa-p256-sha256"}, res.AcceptableCSK)
+		require.Empty(t, res.AcceptableCEK)
+		require.Equal(t, []string{testProfile}, res.AcceptableEvidence)
+	})
+	t.Run("retrieve target: the vault originates the Handle", func(t *testing.T) {
+		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testVaultTarget, CredentialType: "jwt", CredentialHint: "billing"})
+		require.NoError(t, err)
+		require.Equal(t, ModeRetrieve, res.Mode)
+		require.Equal(t, x.vault.handle, res.Handle)
+		require.Equal(t, uint32(120), res.ExpiresIn)
+		require.Equal(t, []string{"DHKEM(P-256, HKDF-SHA256)+HKDF-SHA256+AES-256-GCM"}, res.AcceptableCEK)
+		require.Equal(t, map[string]string{"target": testVaultTarget, "credential_type": "jwt", "credential_hint": "billing"}, x.vault.lastInitiate)
+	})
+	t.Run("missing target", func(t *testing.T) {
+		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID})
+		requireStatus(t, err, codes.InvalidArgument, "target must be specified")
+	})
+	t.Run("unsupported target", func(t *testing.T) {
+		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: "https://other.example"})
+		requireStatus(t, err, codes.NotFound, "unsupported target")
+	})
+	t.Run("credential type not a token", func(t *testing.T) {
+		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "password"})
+		requireStatus(t, err, codes.InvalidArgument, "not a TACRA token")
+	})
+	t.Run("credential type not served", func(t *testing.T) {
+		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "jwt"})
+		requireStatus(t, err, codes.PermissionDenied, "served: x509")
+	})
+	t.Run("the vault's refusal is relayed", func(t *testing.T) {
+		x.vault.mu.Lock()
+		x.vault.initiateErr = &vaultRefusal{Status: http.StatusForbidden, Code: "unsupported-target", Detail: "not served"}
+		x.vault.mu.Unlock()
+		defer func() { x.vault.mu.Lock(); x.vault.initiateErr = nil; x.vault.mu.Unlock() }()
+		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testVaultTarget})
+		requireStatus(t, err, codes.PermissionDenied, "unsupported-target: not served")
+	})
+}
+
+func TestEnroll(t *testing.T) {
+	ctx := context.Background()
+	x := newAcquirerTest(t)
+	csr := testCSR(t)
+
+	initiate := func(t *testing.T, credentialType, hint string) []byte {
+		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: credentialType, CredentialHint: hint})
+		require.NoError(t, err)
+		return res.Handle
+	}
+	enrollment := func(handle []byte) Enrollment {
+		return Enrollment{
+			EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "x509",
+			FreshnessKind: FreshnessPresentNonce, FreshnessElement: handle, CSR: csr,
+			Evidence: testEvidence(t, "sev_guest"), EvidenceProfile: testProfile,
+			BindingMethod: BindingMethod, BindingHash: BindingHash,
+		}
+	}
+
+	t.Run("success: the Evidence is appraised with the binding value and the CSR key is returned", func(t *testing.T) {
+		handle := initiate(t, "x509", "")
+		res, err := x.a.Enroll(ctx, enrollment(handle))
+		require.NoError(t, err)
+		require.Equal(t, "veraison", res.Verifier)
+		require.Equal(t, "SEVSNP", res.Submod)
+		require.Equal(t, testMeasurement, res.Measurement)
+		require.NotNil(t, res.CSR.PublicKey)
+		x.verifier.mu.Lock()
+		last := x.verifier.nonces[len(x.verifier.nonces)-1]
+		x.verifier.mu.Unlock()
+		require.Equal(t, BindingValue(handle, testTarget, csr), last, "the verifier was asked with the binding value as the nonce")
+	})
+	t.Run("a Handle is single use", func(t *testing.T) {
+		handle := initiate(t, "x509", "")
+		_, err := x.a.Enroll(ctx, enrollment(handle))
+		require.NoError(t, err)
+		_, err = x.a.Enroll(ctx, enrollment(handle))
+		requireStatus(t, err, codes.InvalidArgument, "no initiation returned this Handle")
+	})
+	t.Run("no initiation", func(t *testing.T) {
+		_, err := x.a.Enroll(ctx, enrollment([]byte("0123456789abcdef0123456789abcdef")))
+		requireStatus(t, err, codes.InvalidArgument, "no initiation returned this Handle")
+	})
+	t.Run("another workload's Handle", func(t *testing.T) {
+		handle := initiate(t, "x509", "")
+		e := enrollment(handle)
+		e.EntryID = "entry-2"
+		_, err := x.a.Enroll(ctx, e)
+		requireStatus(t, err, codes.InvalidArgument, "freshness")
+	})
+	t.Run("the Credential Type named at initiation must be repeated", func(t *testing.T) {
+		handle := initiate(t, "x509", "")
+		e := enrollment(handle)
+		e.CredentialType = ""
+		_, err := x.a.Enroll(ctx, e)
+		requireStatus(t, err, codes.InvalidArgument, "not repeated")
+	})
+	t.Run("the binding must be the profile's", func(t *testing.T) {
+		handle := initiate(t, "x509", "")
+		e := enrollment(handle)
+		e.BindingHash = "sha256"
+		_, err := x.a.Enroll(ctx, e)
+		requireStatus(t, err, codes.InvalidArgument, "is not recognized")
+	})
+	t.Run("the Freshness Kind must be the initiation's", func(t *testing.T) {
+		handle := initiate(t, "x509", "")
+		e := enrollment(handle)
+		e.FreshnessKind = FreshnessAbsentNone
+		_, err := x.a.Enroll(ctx, e)
+		requireStatus(t, err, codes.InvalidArgument, "differs from the initiation")
+	})
+	t.Run("an Evidence format not accepted", func(t *testing.T) {
+		handle := initiate(t, "x509", "")
+		e := enrollment(handle)
+		e.EvidenceProfile = "application/octet-stream"
+		_, err := x.a.Enroll(ctx, e)
+		requireStatus(t, err, codes.InvalidArgument, "is not accepted")
+	})
+	t.Run("a CSR of another key algorithm", func(t *testing.T) {
+		rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
+		require.NoError(t, err)
+		rsaCSR, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{Subject: pkix.Name{CommonName: "w"}}, rsaKey)
+		require.NoError(t, err)
+		handle := initiate(t, "x509", "")
+		e := enrollment(handle)
+		e.CSR = rsaCSR
+		_, err = x.a.Enroll(ctx, e)
+		requireStatus(t, err, codes.InvalidArgument, "acceptable CSK algorithms")
+	})
+	t.Run("a malformed CSR", func(t *testing.T) {
+		handle := initiate(t, "x509", "")
+		e := enrollment(handle)
+		e.CSR = []byte("not a csr")
+		_, err := x.a.Enroll(ctx, e)
+		requireStatus(t, err, codes.InvalidArgument, "malformed CSR")
+	})
+	t.Run("a substituted CSR fails the binding", func(t *testing.T) {
+		// the verifier answers the nonce it was asked for, so the only way the
+		// binding fails here is the Attestation Results naming another nonce
+		x.verifier.setAnswer(func(_, _ []byte, _ string) (string, string) {
+			key := newTestKey(t)
+			return "complete", signEAR(t, key, []byte("other"), x.now, "SEVSNP", "affirming", snpCoMID(t, gcpMilan()))
+		})
+		defer x.restoreVerifier(t)
+		handle := initiate(t, "x509", "")
+		_, err := x.a.Enroll(ctx, enrollment(handle))
+		requireStatus(t, err, codes.PermissionDenied, "remote attestation failed")
+	})
+	t.Run("a launch measurement not admitted", func(t *testing.T) {
+		h := gcpMilan()
+		h.measurement = append([]byte(nil), testMeasurement...)
+		h.measurement[0] ^= 0xff
+		x.setVerifierHost(t, h)
+		defer x.restoreVerifier(t)
+		handle := initiate(t, "x509", "")
+		_, err := x.a.Enroll(ctx, enrollment(handle))
+		requireStatus(t, err, codes.PermissionDenied, "launch measurement")
+	})
+	t.Run("a guest policy with DEBUG", func(t *testing.T) {
+		h := gcpMilan()
+		h.policy |= 1 << 19
+		x.setVerifierHost(t, h)
+		defer x.restoreVerifier(t)
+		handle := initiate(t, "x509", "")
+		_, err := x.a.Enroll(ctx, enrollment(handle))
+		requireStatus(t, err, codes.PermissionDenied, "DEBUG")
+	})
+	t.Run("results that are not affirming", func(t *testing.T) {
+		x.verifier.setAnswer(func(nonce, _ []byte, _ string) (string, string) {
+			return "complete", signEAR(t, x.veraisonKey, nonce, x.now, "SEVSNP", "contraindicated", snpCoMID(t, gcpMilan()))
+		})
+		defer x.restoreVerifier(t)
+		handle := initiate(t, "x509", "")
+		_, err := x.a.Enroll(ctx, enrollment(handle))
+		requireStatus(t, err, codes.PermissionDenied, "not affirming")
+	})
+	t.Run("Evidence of a provider no policy verifier appraises", func(t *testing.T) {
+		handle := initiate(t, "x509", "")
+		e := enrollment(handle)
+		e.Evidence = testEvidence(t, "tdx_guest")
+		_, err := x.a.Enroll(ctx, e)
+		requireStatus(t, err, codes.PermissionDenied, "none of the verifiers")
+	})
+	t.Run("a retrieve target refuses enrollment", func(t *testing.T) {
+		e := enrollment([]byte("0123456789abcdef0123456789abcdef"))
+		e.Target = testVaultTarget
+		e.CredentialType = "jwt"
+		_, err := x.a.Enroll(ctx, e)
+		requireStatus(t, err, codes.PermissionDenied, "served in retrieve mode")
+	})
+}
+
+func TestRetrieve(t *testing.T) {
+	ctx := context.Background()
+	x := newAcquirerTest(t)
+	evidence := testEvidence(t, "sev_guest")
+
+	res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testVaultTarget, CredentialType: "jwt", CredentialHint: "billing"})
+	require.NoError(t, err)
+
+	retrieval := func() Retrieval {
+		return Retrieval{
+			EntryID: testEntryID, AgentID: testAgentID, Target: testVaultTarget, CredentialType: "jwt", CredentialHint: "billing",
+			FreshnessKind: FreshnessPresentNonce, FreshnessElement: res.Handle, CEKPub: []byte("cek-spki"),
+			Evidence: evidence, EvidenceProfile: testProfile, BindingMethod: BindingMethod, BindingHash: BindingHash,
+		}
+	}
+
+	t.Run("the request is forwarded to the vault with the container coming back opaque", func(t *testing.T) {
+		container, err := x.a.Retrieve(ctx, retrieval())
+		require.NoError(t, err)
+		require.JSONEq(t, x.vault.container, string(container))
+		require.Equal(t, vaultRetrieval{
+			FreshnessKind: FreshnessPresentNonce, Target: testVaultTarget, CredentialType: "jwt",
+			Handle: "dmF1bHQtaGFuZGxlLTAxMjM0NTY3ODlhYmNkZWYwMTI", CredentialHint: "billing",
+			Evidence: b64u(evidence), Profile: testProfile, CEKPub: "Y2VrLXNwa2k",
+		}, x.vault.lastRetrieve)
+	})
+	t.Run("the Handle was taken", func(t *testing.T) {
+		_, err := x.a.Retrieve(ctx, retrieval())
+		requireStatus(t, err, codes.InvalidArgument, "no initiation returned this Handle")
+	})
+	t.Run("the vault's refusal is relayed with its reason", func(t *testing.T) {
+		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testVaultTarget, CredentialType: "jwt", CredentialHint: "billing"})
+		require.NoError(t, err)
+		x.vault.mu.Lock()
+		x.vault.retrieveErr = &vaultRefusal{Status: http.StatusBadRequest, Code: "binding", Detail: "the bound value differs"}
+		x.vault.mu.Unlock()
+		defer func() { x.vault.mu.Lock(); x.vault.retrieveErr = nil; x.vault.mu.Unlock() }()
+		r := retrieval()
+		r.FreshnessElement = res.Handle
+		_, err = x.a.Retrieve(ctx, r)
+		requireStatus(t, err, codes.InvalidArgument, "binding: the bound value differs")
+	})
+	t.Run("passport: the server obtains the Attestation Results and forwards them", func(t *testing.T) {
+		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testPassportTarget, CredentialType: "api-key", CredentialHint: "billing"})
+		require.NoError(t, err)
+		r := retrieval()
+		r.Target, r.CredentialType, r.FreshnessElement = testPassportTarget, "api-key", res.Handle
+		container, err := x.a.Retrieve(ctx, r)
+		require.NoError(t, err)
+		require.JSONEq(t, x.vault.container, string(container))
+		x.verifier.mu.Lock()
+		last := x.verifier.nonces[len(x.verifier.nonces)-1]
+		x.verifier.mu.Unlock()
+		require.Equal(t, BindingValue(res.Handle, testPassportTarget, r.CEKPub), last, "the verifier was asked with the binding value over CEKpub")
+		leg := x.vault.lastRetrieve
+		require.NotEmpty(t, leg.EAR, "the Attestation Results go to the vault")
+		require.Empty(t, leg.Evidence, "the Evidence stays with the server")
+		require.Empty(t, leg.Profile)
+		require.Equal(t, testPassportTarget, leg.Target)
+		require.Equal(t, "api-key", leg.CredentialType)
+	})
+	t.Run("passport: no verifier for the Evidence's provider", func(t *testing.T) {
+		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testPassportTarget, CredentialType: "api-key", CredentialHint: "billing"})
+		require.NoError(t, err)
+		r := retrieval()
+		r.Target, r.CredentialType, r.FreshnessElement = testPassportTarget, "api-key", res.Handle
+		r.Evidence = testEvidence(t, "tdx_guest")
+		_, err = x.a.Retrieve(ctx, r)
+		requireStatus(t, err, codes.PermissionDenied, "none of the verifiers")
+	})
+	t.Run("an enroll target refuses retrieval", func(t *testing.T) {
+		r := retrieval()
+		r.Target = testTarget
+		r.CredentialType = "x509"
+		_, err := x.a.Retrieve(ctx, r)
+		requireStatus(t, err, codes.PermissionDenied, "served in enroll mode")
+	})
+}
+
+func (x *acquirerTest) setVerifierHost(t *testing.T, h snpHost) {
+	x.verifier.setAnswer(func(nonce, _ []byte, _ string) (string, string) {
+		return "complete", signEAR(t, x.veraisonKey, nonce, x.now, "SEVSNP", "affirming", snpCoMID(t, h))
+	})
+}
+
+func (x *acquirerTest) restoreVerifier(t *testing.T) {
+	x.setVerifierHost(t, gcpMilan())
+}
+
+// TestEnrollPlatformRule applies the bench's platform rule: the Milan host of
+// the records passes under the waiver of mitigation bit 4, a host below the
+// TCB floor is refused, and a product line not admitted is refused.
+func TestEnrollPlatformRule(t *testing.T) {
+	ctx := context.Background()
+	x := newAcquirerTest(t)
+	x.a.platform = benchRule()
+	csr := testCSR(t)
+	enroll := func(t *testing.T) (*EnrollmentResult, error) {
+		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "x509"})
+		require.NoError(t, err)
+		return x.a.Enroll(ctx, Enrollment{
+			EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "x509",
+			FreshnessKind: FreshnessPresentNonce, FreshnessElement: res.Handle, CSR: csr,
+			Evidence: testEvidence(t, "sev_guest"), EvidenceProfile: testProfile,
+			BindingMethod: BindingMethod, BindingHash: BindingHash,
+		})
+	}
+	t.Run("the host of the records is admitted under the waiver", func(t *testing.T) {
+		res, err := enroll(t)
+		require.NoError(t, err)
+		require.Len(t, res.Waived, 1)
+		require.Contains(t, res.Waived[0], "admitted without bit 4")
+	})
+	t.Run("a TCB below the floor is refused", func(t *testing.T) {
+		h := gcpMilan()
+		h.reportedTCB = 0xDE1C000000000004 // SNP 28, below the Milan floor of 29
+		x.setVerifierHost(t, h)
+		defer x.restoreVerifier(t)
+		_, err := enroll(t)
+		requireStatus(t, err, codes.PermissionDenied, "REPORTED_TCB snp 28 is below the floor 29")
+	})
+	t.Run("a product line not admitted is refused", func(t *testing.T) {
+		h := gcpMilan()
+		h.family, h.model = 0x19, 0xA0 // Siena
+		x.setVerifierHost(t, h)
+		defer x.restoreVerifier(t)
+		_, err := enroll(t)
+		requireStatus(t, err, codes.PermissionDenied, `product line "Siena"`)
+	})
+	t.Run("a report without mitigation vectors is refused where bits are required", func(t *testing.T) {
+		h := gcpMilan()
+		h.noMitVectors = true
+		x.setVerifierHost(t, h)
+		defer x.restoreVerifier(t)
+		_, err := enroll(t)
+		requireStatus(t, err, codes.PermissionDenied, "no mitigation vector")
+	})
+}

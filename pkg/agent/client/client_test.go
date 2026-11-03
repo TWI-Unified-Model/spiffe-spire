@@ -20,6 +20,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	agentv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/agent/v1"
 	bundlev1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/bundle/v1"
+	credentialacquisitionv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/credentialacquisition/v1"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	svidv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/svid/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
@@ -1144,6 +1145,8 @@ func createClient(t *testing.T) (*client, *testServer) {
 		bundleServer: &fakeBundleServer{},
 		entryServer:  &fakeEntryServer{},
 		svidServer:   &fakeSVIDServer{},
+
+		credentialAcquisitionServer: &fakeCredentialAcquisitionServer{},
 	}
 
 	client := newClient(&Config{
@@ -1159,6 +1162,7 @@ func createClient(t *testing.T) (*client, *testServer) {
 	bundlev1.RegisterBundleServer(server, tc.bundleServer)
 	entryv1.RegisterEntryServer(server, tc.entryServer)
 	svidv1.RegisterSVIDServer(server, tc.svidServer)
+	credentialacquisitionv1.RegisterCredentialAcquisitionServer(server, tc.credentialAcquisitionServer)
 
 	listener := bufconn.Listen(1024)
 	spiretest.ServeGRPCServerOnListener(t, server, listener)
@@ -1374,6 +1378,8 @@ type testServer struct {
 	bundleServer *fakeBundleServer
 	entryServer  *fakeEntryServer
 	svidServer   *fakeSVIDServer
+
+	credentialAcquisitionServer *fakeCredentialAcquisitionServer
 }
 
 func makeAPIBundle(trustDomainName string) *types.Bundle {

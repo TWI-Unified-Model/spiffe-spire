@@ -12,6 +12,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	credentialacquisitionv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/credentialacquisition/v1"
 	"github.com/spiffe/spire/pkg/agent/client"
 	"github.com/spiffe/spire/pkg/agent/manager/cache"
 	"github.com/spiffe/spire/pkg/agent/manager/storecache"
@@ -107,6 +108,15 @@ type Manager interface {
 	// FetchJWTSVID returns a JWT SVID for the specified SPIFFEID and audience. If there
 	// is no JWT cached, the manager will get one signed upstream.
 	FetchJWTSVID(ctx context.Context, entry *common.RegistrationEntry, audience []string) (*client.JWTSVID, error)
+
+	// InitiateCredentialAcquisition, EnrollCredential and RetrieveCredential
+	// forward the attested credential acquisition calls of the Workload API
+	// (TACRA) for the registration entry to the server, which issues the
+	// Freshness Handle, appraises the Evidence and mints or releases the
+	// credential. The entry names the identity the workload is entitled to.
+	InitiateCredentialAcquisition(ctx context.Context, entry *common.RegistrationEntry, req *credentialacquisitionv1.InitiateCredentialAcquisitionRequest) (*credentialacquisitionv1.InitiateCredentialAcquisitionResponse, error)
+	EnrollCredential(ctx context.Context, entry *common.RegistrationEntry, req *credentialacquisitionv1.EnrollCredentialRequest) (*credentialacquisitionv1.EnrollCredentialResponse, error)
+	RetrieveCredential(ctx context.Context, entry *common.RegistrationEntry, req *credentialacquisitionv1.RetrieveCredentialRequest) (*credentialacquisitionv1.RetrieveCredentialResponse, error)
 
 	// CountX509SVIDs returns the amount of X509 SVIDs on memory
 	CountX509SVIDs() int
@@ -338,6 +348,21 @@ func (m *manager) FetchWorkloadUpdate(selectors []*common.Selector) *cache.X509W
 
 func (m *manager) FetchEntriesAndBundles(selectors []*common.Selector) *cache.EntriesAndBundlesUpdate {
 	return m.x509Cache.FetchEntriesAndBundles(selectors)
+}
+
+func (m *manager) InitiateCredentialAcquisition(ctx context.Context, entry *common.RegistrationEntry, req *credentialacquisitionv1.InitiateCredentialAcquisitionRequest) (*credentialacquisitionv1.InitiateCredentialAcquisitionResponse, error) {
+	req.EntryId = entry.EntryId
+	return m.client.InitiateCredentialAcquisition(ctx, req)
+}
+
+func (m *manager) EnrollCredential(ctx context.Context, entry *common.RegistrationEntry, req *credentialacquisitionv1.EnrollCredentialRequest) (*credentialacquisitionv1.EnrollCredentialResponse, error) {
+	req.EntryId = entry.EntryId
+	return m.client.EnrollCredential(ctx, req)
+}
+
+func (m *manager) RetrieveCredential(ctx context.Context, entry *common.RegistrationEntry, req *credentialacquisitionv1.RetrieveCredentialRequest) (*credentialacquisitionv1.RetrieveCredentialResponse, error) {
+	req.EntryId = entry.EntryId
+	return m.client.RetrieveCredential(ctx, req)
 }
 
 func (m *manager) FetchJWTSVID(ctx context.Context, entry *common.RegistrationEntry, audience []string) (*client.JWTSVID, error) {

@@ -1,0 +1,123 @@
+package credentialacquisition
+
+import (
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/require"
+)
+
+func validConfig() *Config {
+	return &Config{
+		Target: map[string]*TargetConfig{
+			"spiffe://example.org": {
+				Mode:         ModeEnroll,
+				Verifiers:    []string{"veraison"},
+				Measurements: []string{"a0a1a2"},
+			},
+		},
+		Verifier: map[string]*VerifierConfig{
+			"veraison": {URL: "https://veraison.example", EARKeyPath: "/keys/veraison.jwk", Provider: "sev_guest", Submods: []string{"SEVSNP"}},
+		},
+		AcceptableEvidence: []string{"application/vnd.veraison.tsm-report+cbor"},
+	}
+}
+
+func TestConfigValidate(t *testing.T) {
+	t.Run("defaults of an enroll target", func(t *testing.T) {
+		policies, err := validConfig().Validate()
+		require.NoError(t, err)
+		p := policies["spiffe://example.org"]
+		require.Equal(t, ModeEnroll, p.Mode)
+		require.Equal(t, []string{"x509"}, p.CredentialTypes)
+		require.Equal(t, FreshnessPresentNonce, p.FreshnessKind)
+		require.Equal(t, 5*time.Minute, p.ExpiresIn)
+		require.Equal(t, []string{"ecdsa-p256-sha256"}, p.AcceptableCSK)
+		require.Equal(t, [][]byte{{0xa0, 0xa1, 0xa2}}, p.Measurements)
+	})
+
+	for _, tt := range []struct {
+		name   string
+		mutate func(c *Config)
+		err    string
+	}{
+		{name: "no target", mutate: func(c *Config) { c.Target = nil }, err: "at least one target is required"},
+		{name: "no acceptable evidence", mutate: func(c *Config) { c.AcceptableEvidence = nil }, err: "acceptable_evidence is required"},
+		{name: "no mode", mutate: func(c *Config) { c.Target["spiffe://example.org"].Mode = "" }, err: "mode is required"},
+		{name: "bad mode", mutate: func(c *Config) { c.Target["spiffe://example.org"].Mode = "mint" }, err: `mode "mint" is not enroll or retrieve`},
+		{name: "credential type not enrollable", mutate: func(c *Config) { c.Target["spiffe://example.org"].CredentialTypes = []string{"jwt"} }, err: `credential type "jwt" cannot be enrolled`},
+		{name: "freshness kind not supported", mutate: func(c *Config) { c.Target["spiffe://example.org"].FreshnessKind = "absent-none" }, err: `freshness_kind "absent-none" is not supported`},
+		{name: "csk not supported", mutate: func(c *Config) { c.Target["spiffe://example.org"].AcceptableCSK = []string{"rsa-2048-sha256"} }, err: `acceptable_csk "rsa-2048-sha256" is not supported`},
+		{name: "no verifiers", mutate: func(c *Config) { c.Target["spiffe://example.org"].Verifiers = nil }, err: "verifiers is required"},
+		{name: "verifier not configured", mutate: func(c *Config) { c.Target["spiffe://example.org"].Verifiers = []string{"tdx"} }, err: `verifier "tdx" is not configured`},
+		{name: "measurement not hex", mutate: func(c *Config) { c.Target["spiffe://example.org"].Measurements = []string{"zz"} }, err: `measurement "zz" is not hex`},
+		{name: "measurements required", mutate: func(c *Config) { c.Target["spiffe://example.org"].Measurements = nil }, err: "measurements is required, or allow_any_measurement"},
+		{name: "expires_in too short", mutate: func(c *Config) { c.Target["spiffe://example.org"].ExpiresIn = "30s" }, err: "below the minute TACRA recommends"},
+		{name: "expires_in malformed", mutate: func(c *Config) { c.Target["spiffe://example.org"].ExpiresIn = "soon" }, err: "expires_in"},
+		{name: "retrieve needs a vault", mutate: func(c *Config) { c.Target["spiffe://example.org"].Mode = ModeRetrieve }, err: "retrieve mode needs a secret_vault"},
+		{name: "retrieve passport needs verifiers", mutate: func(c *Config) {
+			c.SecretVault = &SecretVaultConfig{URL: "https://vault.example"}
+			c.Target["spiffe://example.org"].Mode = ModeRetrieve
+			c.Target["spiffe://example.org"].RATSModel = ModelPassport
+			c.Target["spiffe://example.org"].Verifiers = nil
+		}, err: "rats_model passport needs verifiers"},
+		{name: "retrieve passport verifier not configured", mutate: func(c *Config) {
+			c.SecretVault = &SecretVaultConfig{URL: "https://vault.example"}
+			c.Target["spiffe://example.org"].Mode = ModeRetrieve
+			c.Target["spiffe://example.org"].RATSModel = ModelPassport
+			c.Target["spiffe://example.org"].Verifiers = []string{"tdx"}
+		}, err: `verifier "tdx" is not configured`},
+		{name: "retrieve rats_model unknown", mutate: func(c *Config) {
+			c.SecretVault = &SecretVaultConfig{URL: "https://vault.example"}
+			c.Target["spiffe://example.org"].Mode = ModeRetrieve
+			c.Target["spiffe://example.org"].RATSModel = "oracle"
+		}, err: `rats_model "oracle" is not passport or background-check`},
+		{name: "retrieve credential type token", mutate: func(c *Config) {
+			c.SecretVault = &SecretVaultConfig{URL: "https://vault.example"}
+			c.Target["spiffe://example.org"].Mode = ModeRetrieve
+			c.Target["spiffe://example.org"].CredentialTypes = []string{"password"}
+		}, err: `credential type "password" is not a TACRA token`},
+		{name: "verifier without key", mutate: func(c *Config) { c.Verifier["veraison"].EARKeyPath = "" }, err: "ear_key_path is required"},
+		{name: "verifier without provider", mutate: func(c *Config) { c.Verifier["veraison"].Provider = "" }, err: "provider is required"},
+		{name: "vault without url", mutate: func(c *Config) { c.SecretVault = &SecretVaultConfig{} }, err: "secret_vault: url is required"},
+		{name: "ear_max_age malformed", mutate: func(c *Config) { c.EARMaxAge = "later" }, err: "ear_max_age"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c := validConfig()
+			tt.mutate(c)
+			_, err := c.Validate()
+			require.ErrorContains(t, err, tt.err)
+		})
+	}
+
+	t.Run("allow_any_measurement for bring-up", func(t *testing.T) {
+		c := validConfig()
+		c.Target["spiffe://example.org"].Measurements = nil
+		c.Target["spiffe://example.org"].AllowAnyMeasurement = true
+		policies, err := c.Validate()
+		require.NoError(t, err)
+		require.True(t, policies["spiffe://example.org"].AllowAnyMeasurement)
+	})
+
+	t.Run("a retrieve target", func(t *testing.T) {
+		c := validConfig()
+		c.SecretVault = &SecretVaultConfig{URL: "https://vault.example"}
+		c.Target["https://api.example"] = &TargetConfig{Mode: ModeRetrieve, CredentialTypes: []string{"jwt", "api-key"}}
+		policies, err := c.Validate()
+		require.NoError(t, err)
+		p := policies["https://api.example"]
+		require.Equal(t, ModeRetrieve, p.Mode)
+		require.Equal(t, FreshnessPresentNonce, p.FreshnessKind)
+		require.Equal(t, 5*time.Minute, p.ExpiresIn)
+		require.Equal(t, ModelBackgroundCheck, p.RATSModel)
+	})
+
+	t.Run("a retrieve target in passport", func(t *testing.T) {
+		c := validConfig()
+		c.SecretVault = &SecretVaultConfig{URL: "https://vault.example"}
+		c.Target["https://api.example"] = &TargetConfig{Mode: ModeRetrieve, RATSModel: ModelPassport, Verifiers: []string{"veraison"}}
+		policies, err := c.Validate()
+		require.NoError(t, err)
+		require.Equal(t, ModelPassport, policies["https://api.example"].RATSModel)
+	})
+}
