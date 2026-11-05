@@ -56,8 +56,8 @@ type Config struct {
 	Target map[string]*TargetConfig `hcl:"target"`
 
 	// Verifier, by name, is a RATS Verifier this Server sends Evidence to
-	// and whose Attestation Results it accepts. The policy of a Target names the
-	// Verifiers it uses.
+	// and whose Attestation Results it accepts. The policy for a Target names the
+	// Verifiers it accepts.
 	Verifier map[string]*VerifierConfig `hcl:"verifier"`
 
 	// AcceptableEvidence is the list of Evidence formats this Server
@@ -98,7 +98,7 @@ type TargetConfig struct {
 	CredentialTypes []string `hcl:"credential_types"`
 
 	// FreshnessKind is the Freshness Kind of the exchanges of the Target. This
-	// Server issues present-nonce Handles; a Target in retrieve mode takes
+	// Server issues present-nonce Handles; a Target in retrieve mode uses
 	// the kind its Secret Vault answers.
 	FreshnessKind string `hcl:"freshness_kind"`
 
@@ -107,7 +107,7 @@ type TargetConfig struct {
 	ExpiresIn string `hcl:"expires_in"`
 
 	// Verifiers names the Verifiers whose Attestation Results the policy
-	// takes for this Target, among those configured. In retrieve mode, the
+	// accepts for this Target, among those configured. In retrieve mode, the
 	// Verifiers the Server asks when the RATS model is passport.
 	Verifiers []string `hcl:"verifiers"`
 
@@ -269,7 +269,7 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 			}
 		}
 		if len(p.Verifiers) == 0 {
-			return fail("verifiers is required: without it the Attestation Results of no Verifier are taken")
+			return fail("verifiers is required: without it the Attestation Results of no Verifier are accepted")
 		}
 		for _, v := range p.Verifiers {
 			if _, ok := c.Verifier[v]; !ok {

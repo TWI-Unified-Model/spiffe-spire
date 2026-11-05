@@ -67,7 +67,7 @@ func (k *KeyPair) Public() crypto.PublicKey {
 	return s.Public()
 }
 
-// CEKPub is CEKpub as the binding input takes it and the Secret Vault receives it: for an MLKEM768-P256 key
+// CEKPub is CEKpub as the binding input carries it and the Secret Vault receives it: for an MLKEM768-P256 key
 // (an hpke.PublicKey) the 1249-octet encapsulation key itself, which has no SubjectPublicKeyInfo form here; for
 // any other key its DER SubjectPublicKeyInfo.
 func CEKPub(pub crypto.PublicKey) ([]byte, error) {
@@ -161,7 +161,7 @@ func generateMLKEM768P256() (*KeyPair, error) {
 // EvidenceRequest is the input to Plugin.GenerateEvidence.
 type EvidenceRequest struct {
 	// FreshnessKind selects how freshness is established. present-* kinds
-	// bind FreshnessHandle as eat_nonce; absent-* kinds do not take a
+	// bind FreshnessHandle as eat_nonce; absent-* kinds carry no
 	// Handle from Initiate-Credential-Acquisition.
 	FreshnessKind FreshnessKind
 

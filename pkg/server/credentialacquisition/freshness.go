@@ -82,13 +82,13 @@ func (s *sessions) remember(handle []byte, ss session) {
 	s.byID[key] = append(s.byID[key], ss)
 }
 
-// take correlates the second call with the initiation that returned its
+// consume correlates the second call with the initiation that returned its
 // Handle: the call must repeat the Target and the Freshness Kind of its
 // initiation, and a Credential Type or Credential Hint the initiation named,
 // while one it omitted may be named. This Server adds the registration entry
 // of the Workload and its Agent: the exchange belongs to the Workload the
-// Agent attested at initiation. A present-nonce Handle is taken once.
-func (s *sessions) take(handle []byte, kind, target, credentialType, hint, entryID, agentID string) (session, error) {
+// Agent attested at initiation. A present-nonce Handle is consumed once.
+func (s *sessions) consume(handle []byte, kind, target, credentialType, hint, entryID, agentID string) (session, error) {
 	key := hex.EncodeToString(handle)
 	s.mu.Lock()
 	defer s.mu.Unlock()

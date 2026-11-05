@@ -115,7 +115,7 @@ func mainWithCode() int {
 	credentialType := flag.String("credentialType", "x509", "the Credential Type: x509 or wic to enroll, api-key, jwt, psk, wit or private-key to retrieve")
 	hint := flag.String("hint", "", "the Credential Hint: the hint of the registration entry whose identity to acquire, or what the Secret Vault selects by")
 	vaultOriginKey := flag.String("vaultOriginKey", "", "a file holding the signature key of the Secret Vault (PEM or DER SubjectPublicKeyInfo); given, the container must be signed under it")
-	maxValidity := flag.Int("maxValidity", 3600, "the longest validity_seconds of a retrieved credential this Workload takes")
+	maxValidity := flag.Int("maxValidity", 3600, "the longest validity_seconds of a retrieved credential this Workload accepts")
 	tee := flag.String("tee", "sev-snp", "the trusted execution environment: sev-snp or tdx")
 	out := flag.String("out", ".", "the directory the SVID, its key, the bundle and result.json are written to")
 	timeout := flag.Duration("timeout", 2*time.Minute, "how long the exchange may take")

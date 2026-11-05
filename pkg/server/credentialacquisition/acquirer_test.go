@@ -170,7 +170,7 @@ func TestEnroll(t *testing.T) {
 		e := enrollment(handle)
 		e.CredentialType = "jwt"
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.PermissionDenied, "the Attestation Results are not signed by a Verifier that the policy of the Target names")
+		requireStatus(t, err, codes.PermissionDenied, "the Attestation Results are not signed by a Verifier that the policy for the Target names")
 	})
 	t.Run("a Handle is single use", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
@@ -272,7 +272,7 @@ func TestEnroll(t *testing.T) {
 	t.Run("results that are not affirming", func(t *testing.T) {
 		// contraindicated is the lowest of the EAR trust tiers (affirming,
 		// warning, contraindicated, none): the Verifier appraised the Evidence
-		// and found it against its policy. The Server takes affirming results
+		// and found it against its policy. The Server accepts affirming results
 		// alone.
 		x.verifier.setAnswer(func(nonce, _ []byte, _ string) (string, string) {
 			return "complete", signEAR(t, x.veraisonKey, nonce, x.now, "SEVSNP", "contraindicated", snpCoMID(t, gcpMilan()))
@@ -287,7 +287,7 @@ func TestEnroll(t *testing.T) {
 		e := enrollment(handle)
 		e.Evidence = testEvidence(t, "tdx_guest")
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.PermissionDenied, "none of the Verifiers named by the policy of the Target appraises Evidence of this provider")
+		requireStatus(t, err, codes.PermissionDenied, "the policy for the Target names no Verifier for Evidence of this provider")
 	})
 	t.Run("a retrieve Target refuses enrollment", func(t *testing.T) {
 		e := enrollment([]byte("0123456789abcdef0123456789abcdef"))
@@ -324,7 +324,7 @@ func TestRetrieve(t *testing.T) {
 			Evidence: b64u(evidence), Profile: testProfile, CEKPub: "Y2VrLXNwa2k",
 		}, x.vault.lastRetrieve)
 	})
-	t.Run("the Handle was taken", func(t *testing.T) {
+	t.Run("the Handle was consumed", func(t *testing.T) {
 		_, err := x.a.Retrieve(ctx, retrieval())
 		requireStatus(t, err, codes.InvalidArgument, "no initiation returned this Handle")
 	})
@@ -378,7 +378,7 @@ func TestRetrieve(t *testing.T) {
 		r.Target, r.CredentialType, r.FreshnessElement = testPassportTarget, "api-key", res.Handle
 		r.Evidence = testEvidence(t, "tdx_guest")
 		_, err = x.a.Retrieve(ctx, r)
-		requireStatus(t, err, codes.PermissionDenied, "none of the Verifiers named by the policy of the Target appraises Evidence of this provider")
+		requireStatus(t, err, codes.PermissionDenied, "the policy for the Target names no Verifier for Evidence of this provider")
 	})
 	t.Run("an enroll Target refuses retrieval", func(t *testing.T) {
 		r := retrieval()

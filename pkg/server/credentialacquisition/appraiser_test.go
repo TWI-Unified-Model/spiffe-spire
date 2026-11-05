@@ -15,7 +15,7 @@ import (
 )
 
 // mockVerifier speaks the challenge-response API of Veraison: it opens a session
-// for the nonce of the request, takes the Evidence posted to it, and answers
+// for the nonce of the request, receives the Evidence posted to it, and answers
 // the Attestation Results its answer function signs for that nonce.
 type mockVerifier struct {
 	server  *httptest.Server
@@ -105,7 +105,7 @@ func TestAppraise(t *testing.T) {
 		require.Equal(t, "veraison", name)
 		require.Equal(t, 1, f.deleted, "the session is deleted after use")
 	})
-	t.Run("a Verifier the policy does not take is not asked", func(t *testing.T) {
+	t.Run("a Verifier the policy does not name is not asked", func(t *testing.T) {
 		_, _, err := a.appraise(context.Background(), evidence, "application/vnd.veraison.tsm-report+cbor", nonce, []string{"tdx"})
 		require.ErrorIs(t, err, ErrNoVerifier)
 	})

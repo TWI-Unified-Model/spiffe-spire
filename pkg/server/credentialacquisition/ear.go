@@ -21,7 +21,7 @@ import (
 
 // Refusals of Attestation Results.
 var (
-	ErrEARSignature    = errors.New("the Attestation Results are not signed by a Verifier that the policy of the Target names")
+	ErrEARSignature    = errors.New("the Attestation Results are not signed by a Verifier that the policy for the Target names")
 	ErrEARStale        = errors.New("the Attestation Results were issued too long ago or in the future")
 	ErrEARNonce        = errors.New("the Attestation Results report a nonce that is not the binding value")
 	ErrEARNotAffirming = errors.New("the Attestation Results are not affirming")
@@ -38,7 +38,7 @@ type earKey struct {
 
 // earVerifier verifies the Attestation Results a Veraison Verifier returns:
 // an EAR (RFC 9711 EAT in a JWT signed ES256) that must be signed by the key
-// provisioned for a Verifier that the policy of the Target names, be recent, report the
+// provisioned for a Verifier that the policy for the Target names, be recent, report the
 // binding value as its eat_nonce, and be affirming for the submodule of the
 // scheme of the Verifier.
 type earVerifier struct {
@@ -48,7 +48,7 @@ type earVerifier struct {
 	now    func() time.Time
 }
 
-// earResult is what the Server takes from verified Attestation Results.
+// earResult is what the Server keeps from verified Attestation Results.
 type earResult struct {
 	Verifier    string
 	Submod      string

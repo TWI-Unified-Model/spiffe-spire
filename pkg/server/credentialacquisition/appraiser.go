@@ -22,12 +22,12 @@ import (
 
 // Refusals of the appraisal.
 var (
-	ErrNoVerifier          = errors.New("none of the Verifiers named by the policy of the Target appraises Evidence of this provider")
+	ErrNoVerifier          = errors.New("the policy for the Target names no Verifier for Evidence of this provider")
 	ErrVerifierUnavailable = errors.New("the Verifier is unavailable")
 	ErrNoResults           = errors.New("the Verifier produced no Attestation Results")
 )
 
-// verifier is one RATS Verifier the Server sends Evidence to, over mutual
+// verifier is the RATS Verifier the Server sends Evidence to, over mutual
 // TLS with the client certificate of the Server, through the challenge-response
 // API of Veraison: a session opened with a nonce, here the binding
 // value the Server recomputed, and the Evidence posted to it.
@@ -38,7 +38,7 @@ type verifier struct {
 	client   *http.Client
 }
 
-// appraiser holds the Verifiers; the policy of a Target names the ones it uses.
+// appraiser holds the Verifiers; the policy for a Target names the ones it accepts.
 type appraiser struct {
 	verifiers []verifier
 }
@@ -61,7 +61,7 @@ func newAppraiser(c *Config) (*appraiser, error) {
 	return a, nil
 }
 
-// route picks, among the Verifiers that the policy of the Target names, the one
+// route picks, among the Verifiers that the policy for the Target names, the one
 // for the TSM report provider of the Evidence. The policy chooses the Verifier; the
 // Evidence only picks among those, and there is no default for the rest.
 func (a *appraiser) route(evidence []byte, accept []string) (*verifier, error) {
@@ -81,8 +81,8 @@ func (a *appraiser) route(evidence []byte, accept []string) (*verifier, error) {
 	return nil, fmt.Errorf("%w: provider %q, Verifiers %v", ErrNoVerifier, provider, accept)
 }
 
-// appraise runs one challenge-response session with the Verifier the
-// policy takes for the Evidence and returns its Attestation Results, not
+// appraise runs one challenge-response session with the Verifier that the
+// policy names for the Evidence and returns its Attestation Results, not
 // yet verified, and the name of the Verifier.
 func (a *appraiser) appraise(ctx context.Context, evidence []byte, mediaType string, nonce []byte, accept []string) (string, string, error) {
 	v, err := a.route(evidence, accept)

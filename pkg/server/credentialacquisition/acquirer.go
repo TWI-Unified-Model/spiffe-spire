@@ -231,8 +231,8 @@ func (a *Acquirer) Enroll(ctx context.Context, in Enrollment) (*EnrollmentResult
 	if err != nil {
 		return nil, err
 	}
-	// The request is well formed: the single-use Handle is taken only now.
-	if err := a.takeSession(in.FreshnessKind, in.FreshnessElement, in.Target, in.CredentialType, in.CredentialHint, in.EntryID, in.AgentID); err != nil {
+	// The request is well formed: the single-use Handle is consumed only now.
+	if err := a.consumeSession(in.FreshnessKind, in.FreshnessElement, in.Target, in.CredentialType, in.CredentialHint, in.EntryID, in.AgentID); err != nil {
 		return nil, err
 	}
 	bv := BindingValue(in.FreshnessElement, in.Target, in.CSR)
@@ -292,8 +292,8 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 	if a.vault == nil {
 		return nil, status.Error(codes.Unavailable, "no Secret Vault is configured")
 	}
-	// The request is well formed: the single-use Handle is taken only now.
-	if err := a.takeSession(in.FreshnessKind, in.FreshnessElement, in.Target, in.CredentialType, in.CredentialHint, in.EntryID, in.AgentID); err != nil {
+	// The request is well formed: the single-use Handle is consumed only now.
+	if err := a.consumeSession(in.FreshnessKind, in.FreshnessElement, in.Target, in.CredentialType, in.CredentialHint, in.EntryID, in.AgentID); err != nil {
 		return nil, err
 	}
 	leg := &vaultRetrieval{
@@ -372,20 +372,20 @@ func (p *Policy) servesCredentialType(credentialType string) error {
 
 func checkBinding(method, hash string) error {
 	if method != BindingMethod || hash != BindingHash {
-		return status.Errorf(codes.InvalidArgument, "binding %q with %q is not recognized; this Server takes %s with %s",
+		return status.Errorf(codes.InvalidArgument, "binding %q with %q is not recognized; this Server accepts %s with %s",
 			method, hash, BindingMethod, BindingHash)
 	}
 	return nil
 }
 
-func (a *Acquirer) takeSession(kind string, element []byte, target, credentialType, hint, entryID, agentID string) error {
+func (a *Acquirer) consumeSession(kind string, element []byte, target, credentialType, hint, entryID, agentID string) error {
 	if kind != FreshnessPresentNonce {
 		return status.Errorf(codes.InvalidArgument, "Freshness Kind %q differs from %s, the kind named at initiation", kind, FreshnessPresentNonce)
 	}
 	if len(element) < 16 || len(element) > 64 {
 		return status.Errorf(codes.InvalidArgument, "a present-nonce Handle is 16 to 64 octets, not %d", len(element))
 	}
-	if _, err := a.sessions.take(element, kind, target, credentialType, hint, entryID, agentID); err != nil {
+	if _, err := a.sessions.consume(element, kind, target, credentialType, hint, entryID, agentID); err != nil {
 		return status.Errorf(codes.InvalidArgument, "freshness: %v", err)
 	}
 	return nil

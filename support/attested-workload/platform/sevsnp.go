@@ -222,12 +222,12 @@ func (p *tsmConfig) FreshnessElement(req EvidenceRequest) ([]byte, error) {
 			return append([]byte(nil), req.FreshnessHandle...), nil
 		}
 		if len(req.FreshnessHandle) != 0 {
-			return nil, fmt.Errorf("%w: absent-timestamp takes %d octets", ErrFreshnessElement, TimestampElementSize)
+			return nil, fmt.Errorf("%w: absent-timestamp needs %d octets", ErrFreshnessElement, TimestampElementSize)
 		}
 		return TimestampElement(p.clock().Unix()), nil
 	case FreshnessKindAbsentNone:
 		if len(req.FreshnessHandle) != 0 {
-			return nil, fmt.Errorf("%w: absent-none takes none", ErrFreshnessElement)
+			return nil, fmt.Errorf("%w: absent-none needs none", ErrFreshnessElement)
 		}
 		return nil, nil
 	default:

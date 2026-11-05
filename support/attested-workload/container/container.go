@@ -60,7 +60,7 @@ var (
 	ErrOriginRequired = errors.New("container: origin authentication required, and the container carries none")
 	ErrAttributes     = errors.New("container: an item has no key-block attributes (purpose, algorithm, exportable)")
 	ErrExportable     = errors.New("container: an item may leave the TEE")
-	ErrShared         = errors.New("container: an item is a private key shared among instances, which this Workload takes none of")
+	ErrShared         = errors.New("container: an item is a private key shared among instances, which this Workload accepts none of")
 	ErrValidity       = errors.New("container: validity_seconds is missing or longer than this Workload accepts")
 )
 
@@ -326,7 +326,7 @@ func GenerateCEKP256() (*ecdh.PrivateKey, []byte, error) {
 	return k, spki, nil
 }
 
-// DHKEMPrivateKey is a P-256 CEK as the HPKE recipient takes it: from the
+// DHKEMPrivateKey is a P-256 CEK as the HPKE recipient uses it: from the
 // ECDSA or ECDH private key the platform plug-in generated.
 func DHKEMPrivateKey(k crypto.PrivateKey) (hpke.PrivateKey, error) {
 	switch p := k.(type) {
