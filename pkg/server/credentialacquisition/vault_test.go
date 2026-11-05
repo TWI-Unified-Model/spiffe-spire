@@ -84,7 +84,7 @@ func TestVaultClient(t *testing.T) {
 		require.Equal(t, 120, vi.ExpiresIn)
 		require.Equal(t, map[string]string{"target": "https://api.example", "credential_type": "jwt", "credential_hint": "billing"}, f.lastInitiate)
 	})
-	t.Run("initiate omits what the workload omitted", func(t *testing.T) {
+	t.Run("initiate omits what the Workload omitted", func(t *testing.T) {
 		_, _, err := v.initiate(context.Background(), "https://api.example", "", "")
 		require.NoError(t, err)
 		require.Equal(t, map[string]string{"target": "https://api.example"}, f.lastInitiate)

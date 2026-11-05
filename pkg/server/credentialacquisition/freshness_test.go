@@ -30,11 +30,11 @@ func TestSessionsMintAndTake(t *testing.T) {
 		_, err := s.take(handle, FreshnessPresentEpoch, ss.target, "x509", "internal", "entry-1", ss.agentID)
 		require.ErrorIs(t, err, ErrNotCorrelated)
 	})
-	t.Run("another workload is not correlated", func(t *testing.T) {
+	t.Run("another Workload is not correlated", func(t *testing.T) {
 		_, err := s.take(handle, FreshnessPresentNonce, ss.target, "x509", "internal", "entry-2", ss.agentID)
 		require.ErrorIs(t, err, ErrNotCorrelated)
 	})
-	t.Run("another agent is not correlated", func(t *testing.T) {
+	t.Run("another Agent is not correlated", func(t *testing.T) {
 		_, err := s.take(handle, FreshnessPresentNonce, ss.target, "x509", "internal", "entry-1", "spiffe://example.org/other-agent")
 		require.ErrorIs(t, err, ErrNotCorrelated)
 	})

@@ -20,11 +20,11 @@ import (
 )
 
 // Acquirer is the Credential Acquisition System Server: the three calls of
-// TACRA for the workloads the agents attested. The refusals it returns are
+// TACRA for the Workloads the Agents attested. The refusals it returns are
 // gRPC statuses that name the reason, as TACRA enumerates them: an invalid
 // or unsupported Target, an unsupported Credential Type, a rejected
 // Credential Hint, a Remote Attestation failure, a permission failure, a
-// server unreachable.
+// Server unreachable.
 type Acquirer struct {
 	log       logrus.FieldLogger
 	policies  map[string]*Policy
@@ -91,8 +91,8 @@ func newAcquirer(log logrus.FieldLogger, policies map[string]*Policy, evidence [
 	}
 }
 
-// Initiation is Initiate-Credential-Acquisition as the agent forwards it,
-// with the registration entry of the workload it attested and its own ID.
+// Initiation is Initiate-Credential-Acquisition as the Agent forwards it,
+// with the registration entry of the Workload it attested and its own ID.
 type Initiation struct {
 	EntryID        string
 	AgentID        string
@@ -101,7 +101,7 @@ type Initiation struct {
 	CredentialHint string
 }
 
-// InitiationResult is what the workload needs to produce its key and its
+// InitiationResult is what the Workload needs to produce its key and its
 // Evidence.
 type InitiationResult struct {
 	Mode               string
@@ -161,7 +161,7 @@ func (a *Acquirer) Initiate(ctx context.Context, in Initiation) (*InitiationResu
 		case vi.Mode != ModeRetrieve:
 			return nil, status.Errorf(codes.Unavailable, "secret vault answered mode %q for a Target in retrieve mode", vi.Mode)
 		case vi.FreshnessKind != FreshnessPresentNonce:
-			return nil, status.Errorf(codes.Unavailable, "secret vault answered Freshness Kind %q; this server supports present-nonce", vi.FreshnessKind)
+			return nil, status.Errorf(codes.Unavailable, "Secret Vault answered Freshness Kind %q; this Server supports present-nonce", vi.FreshnessKind)
 		case len(handle) < 16 || len(handle) > 64:
 			return nil, status.Errorf(codes.Unavailable, "secret vault answered a Handle of %d octets", len(handle))
 		case len(vi.AcceptableCEK) == 0:
@@ -184,7 +184,7 @@ func (a *Acquirer) Initiate(ctx context.Context, in Initiation) (*InitiationResu
 	}
 }
 
-// Enrollment is Enroll-Credential as the agent forwards it.
+// Enrollment is Enroll-Credential as the Agent forwards it.
 type Enrollment struct {
 	EntryID          string
 	AgentID          string
@@ -253,7 +253,7 @@ func (a *Acquirer) Enroll(ctx context.Context, in Enrollment) (*EnrollmentResult
 	}, nil
 }
 
-// Retrieval is Retrieve-Credential as the agent forwards it.
+// Retrieval is Retrieve-Credential as the Agent forwards it.
 type Retrieval struct {
 	EntryID          string
 	AgentID          string
@@ -307,7 +307,7 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 	}
 	switch p.RATSModel {
 	case ModelPassport:
-		// The server asks the verifier the policy takes and forwards the
+		// The Server asks the verifier the policy takes and forwards the
 		// Attestation Results; the vault verifies them under the keys it holds.
 		bv := BindingValue(in.FreshnessElement, in.Target, in.CEKPub)
 		ear, _, err := a.appraiser.appraise(ctx, in.Evidence, profile, bv, p.Verifiers)
@@ -364,7 +364,7 @@ func (p *Policy) servesCredentialType(credentialType string) error {
 
 func checkBinding(method, hash string) error {
 	if method != BindingMethod || hash != BindingHash {
-		return status.Errorf(codes.InvalidArgument, "binding %q with %q is not recognized; this server takes %s with %s",
+		return status.Errorf(codes.InvalidArgument, "binding %q with %q is not recognized; this Server takes %s with %s",
 			method, hash, BindingMethod, BindingHash)
 	}
 	return nil
@@ -456,7 +456,7 @@ func (a *Acquirer) appraise(ctx context.Context, p *Policy, evidence []byte, pro
 	return res, nil
 }
 
-// vaultError turns a Secret Vault refusal into the status the workload sees:
+// vaultError turns a Secret Vault refusal into the status the Workload sees:
 // the vault's reason, with the code its HTTP status means in the TACRA EST
 // profile.
 func vaultError(err error) error {

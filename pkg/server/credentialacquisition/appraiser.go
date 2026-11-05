@@ -27,10 +27,10 @@ var (
 	ErrNoResults           = errors.New("the verifier produced no Attestation Results")
 )
 
-// verifier is one RATS Verifier the server sends Evidence to, over mutual
-// TLS with the server's own client certificate, through Veraison's
+// verifier is one RATS Verifier the Server sends Evidence to, over mutual
+// TLS with the Server's own client certificate, through Veraison's
 // challenge-response API: a session opened with a nonce, here the binding
-// value the server recomputed, and the Evidence posted to it.
+// value the Server recomputed, and the Evidence posted to it.
 type verifier struct {
 	name     string
 	provider string
@@ -136,7 +136,7 @@ func (a *appraiser) appraise(ctx context.Context, evidence []byte, mediaType str
 }
 
 // clientTLS is the TLS configuration for a verifier or the Secret Vault: its
-// CA, and this server's client certificate when configured.
+// CA, and this Server's client certificate when configured.
 func clientTLS(caPath, certPath, keyPath string) (*tls.Config, error) {
 	tc := &tls.Config{MinVersion: tls.VersionTLS12}
 	if caPath != "" {

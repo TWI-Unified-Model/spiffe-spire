@@ -9,12 +9,12 @@ import (
 	"time"
 )
 
-// handleSize is the size of a present-nonce Handle this server mints: 32
+// handleSize is the size of a present-nonce Handle this Server mints: 32
 // octets, within the 16 to 64 octets of TACRA, with 256 bits of entropy.
 const handleSize = 32
 
 // session is one Initiate-Credential-Acquisition whose Handle is still valid:
-// what the second call must repeat, and the workload and agent it belongs to.
+// what the second call must repeat, and the Workload and Agent it belongs to.
 type session struct {
 	kind           string
 	target         string
@@ -29,7 +29,7 @@ type session struct {
 // Refusals of the second call of an exchange.
 var (
 	ErrUnknownHandle = errors.New("no initiation returned this Handle, or it expired")
-	ErrNotCorrelated = errors.New("the Target, the Freshness Kind, the workload or the agent differ from the initiation, or a Credential Type or Credential Hint it named is not repeated")
+	ErrNotCorrelated = errors.New("the Target, the Freshness Kind, the Workload or the Agent differ from the initiation, or a Credential Type or Credential Hint it named is not repeated")
 )
 
 // sessions keeps the sessions by Handle, and forgets the expired ones.
@@ -54,7 +54,7 @@ func (s *sessions) mint(ss session) ([]byte, error) {
 }
 
 // remember keeps the session under its Handle, in place of an earlier one
-// for the same Target, Credential Type, kind, workload and agent, and forgets
+// for the same Target, Credential Type, kind, Workload and Agent, and forgets
 // every expired session.
 func (s *sessions) remember(handle []byte, ss session) {
 	key := hex.EncodeToString(handle)
@@ -85,9 +85,9 @@ func (s *sessions) remember(handle []byte, ss session) {
 // take correlates the second call with the initiation that returned its
 // Handle, as the TACRA EST profile says: the call must repeat the Target and
 // the Freshness Kind of its initiation, and a Credential Type or Credential
-// Hint the initiation named, while one it omitted may be named. This server
-// adds the workload's registration entry and its agent: the exchange belongs
-// to the workload the agent attested at initiation. A present-nonce Handle
+// Hint the initiation named, while one it omitted may be named. This Server
+// adds the Workload's registration entry and its Agent: the exchange belongs
+// to the Workload the Agent attested at initiation. A present-nonce Handle
 // is taken once.
 func (s *sessions) take(handle []byte, kind, target, credentialType, hint, entryID, agentID string) (session, error) {
 	key := hex.EncodeToString(handle)

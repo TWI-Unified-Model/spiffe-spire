@@ -12,7 +12,7 @@ import (
 )
 
 // fakeCredentialAcquisitionClient records the requests the manager forwards
-// to the server for attested credential acquisition.
+// to the Server for attested credential acquisition.
 type fakeCredentialAcquisitionClient struct {
 	client.Client
 
@@ -38,7 +38,7 @@ func (c *fakeCredentialAcquisitionClient) RetrieveCredential(_ context.Context, 
 
 // TestCredentialAcquisitionNamesTheEntry checks that the manager forwards each
 // call for the registration entry the handler chose: the entry ID travels in
-// the request, as the server authorizes the agent per entry.
+// the request, as the Server authorizes the Agent per entry.
 func TestCredentialAcquisitionNamesTheEntry(t *testing.T) {
 	fake := &fakeCredentialAcquisitionClient{}
 	m := &manager{client: fake}

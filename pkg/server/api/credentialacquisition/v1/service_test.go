@@ -177,7 +177,7 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 		_, err := st.client.InitiateCredentialAcquisition(ctx, &credentialacquisitionv1.InitiateCredentialAcquisitionRequest{Target: td.IDString()})
 		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, "missing entry ID")
 	})
-	t.Run("entry not authorized for the agent", func(t *testing.T) {
+	t.Run("entry not authorized for the Agent", func(t *testing.T) {
 		_, err := st.client.InitiateCredentialAcquisition(ctx, &credentialacquisitionv1.InitiateCredentialAcquisitionRequest{EntryId: "entry-2", Target: td.IDString()})
 		spiretest.RequireGRPCStatus(t, err, codes.NotFound, "entry not found or not authorized")
 	})

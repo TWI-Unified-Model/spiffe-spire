@@ -53,9 +53,9 @@ func New(config Config) *Service {
 }
 
 // Service implements the v1 CredentialAcquisition service: the Credential
-// Acquisition System Server of TACRA. The caller is an agent; every call
-// names the registration entry of the workload the agent attested, which
-// the agent must be authorized for.
+// Acquisition System Server of TACRA. The caller is an Agent; every call
+// names the registration entry of the Workload the Agent attested, which
+// the Agent must be authorized for.
 type Service struct {
 	credentialacquisitionv1.UnsafeCredentialAcquisitionServer
 
@@ -201,7 +201,7 @@ func (s *Service) EnrollCredential(ctx context.Context, req *credentialacquisiti
 }
 
 // RetrieveCredential forwards the request to the Secret Vault and returns
-// the credential it released, sealed to the workload's key.
+// the credential it released, sealed to the Workload's key.
 func (s *Service) RetrieveCredential(ctx context.Context, req *credentialacquisitionv1.RetrieveCredentialRequest) (*credentialacquisitionv1.RetrieveCredentialResponse, error) {
 	log := rpccontext.Logger(ctx)
 	rpccontext.AddRPCAuditFields(ctx, logrus.Fields{
@@ -253,8 +253,8 @@ func (s *Service) RetrieveCredential(ctx context.Context, req *credentialacquisi
 	return &credentialacquisitionv1.RetrieveCredentialResponse{EncryptedCredentialBundle: container}, nil
 }
 
-// authorizedEntry fetches the registration entry the agent names, which the
-// calling agent must be authorized for.
+// authorizedEntry fetches the registration entry the Agent names, which the
+// calling Agent must be authorized for.
 func (s *Service) authorizedEntry(ctx context.Context, log logrus.FieldLogger, entryID string) (api.ReadOnlyEntry, spiffeid.ID, error) {
 	if entryID == "" {
 		return api.ReadOnlyEntry{}, spiffeid.ID{}, commonapi.MakeErr(log, codes.InvalidArgument, "missing entry ID", nil)
@@ -274,7 +274,7 @@ func (s *Service) authorizedEntry(ctx context.Context, log logrus.FieldLogger, e
 	return entry, callerID, nil
 }
 
-// The TACRA tokens of the enums of the server API.
+// The TACRA tokens of the enums of the Server API.
 
 func credentialTypeToken(t types.CredentialType) string {
 	switch t {

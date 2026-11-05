@@ -1,18 +1,18 @@
-// Command attested-workload is an attested workload of the TACRA proof of
+// Command attested-workload is an attested Workload of the TACRA proof of
 // concept: the Attester of draft-novak-rats-tacra, in a hardware-based
 // trusted execution environment, obtaining an X509-SVID through the attested
 // credential acquisition calls of the Workload API.
 //
-// The workload asks the agent to initiate credential acquisition for a
+// The Workload asks the Agent to initiate credential acquisition for a
 // Target. In enroll mode it generates a Credential Signing Key and a PKCS#10
 // CSR for it, has the hardware produce Evidence whose freshness input is the
 // TACRA binding value over the Freshness Handle, the Target and the CSR, and
 // enrolls the CSR with that Evidence: the X509-SVID it receives carries its
-// own key, which never left the workload, and it verifies the chain against
+// own key, which never left the Workload, and it verifies the chain against
 // the trust domain's bundle. In retrieve mode it generates a Credential
 // Encryption Key, binds its public half into the Evidence the same way, and
 // opens the container the Secret Vault sealed to it: the credential never
-// crossed the agent or the server in the clear. It records the exchange.
+// crossed the Agent or the Server in the clear. It records the exchange.
 //
 //	attested-workload -target spiffe://example.org [-tee sev-snp|tdx] [-out DIR]
 //	attested-workload -target https://ledger.example -credentialType api-key -hint payments [-vaultOriginKey FILE]
@@ -110,12 +110,12 @@ func main() {
 }
 
 func mainWithCode() int {
-	socketPath := flag.String("socketPath", "/tmp/spire-agent/public/api.sock", "path of the agent's Workload API socket")
+	socketPath := flag.String("socketPath", "/tmp/spire-agent/public/api.sock", "path of the Agent's Workload API socket")
 	target := flag.String("target", "", "the Target of the exchange (required), for example the SPIFFE ID of the trust domain")
 	credentialType := flag.String("credentialType", "x509", "the Credential Type: x509 or wic to enroll, api-key, jwt, psk, wit or private-key to retrieve")
 	hint := flag.String("hint", "", "the Credential Hint: the hint of the registration entry whose identity to acquire, or what the Secret Vault selects by")
 	vaultOriginKey := flag.String("vaultOriginKey", "", "a file holding the Secret Vault's signature key (PEM or DER SubjectPublicKeyInfo); given, the container must be signed under it")
-	maxValidity := flag.Int("maxValidity", 3600, "the longest validity_seconds of a retrieved credential this workload takes")
+	maxValidity := flag.Int("maxValidity", 3600, "the longest validity_seconds of a retrieved credential this Workload takes")
 	tee := flag.String("tee", "sev-snp", "the trusted execution environment: sev-snp or tdx")
 	out := flag.String("out", ".", "the directory the SVID, its key, the bundle and result.json are written to")
 	timeout := flag.Duration("timeout", 2*time.Minute, "how long the exchange may take")
@@ -189,7 +189,7 @@ func run(ctx context.Context, r *result, socketPath, out, vaultOriginKey string,
 
 	client, err := workloadapi.New(ctx, workloadapi.WithAddr("unix://"+socketPath))
 	if err != nil {
-		return fmt.Errorf("workload api: %w", err)
+		return fmt.Errorf("calling the Workload API: %w", err)
 	}
 	defer client.Close()
 
@@ -214,16 +214,16 @@ func run(ctx context.Context, r *result, socketPath, out, vaultOriginKey string,
 	r.AcceptableEvidence = initiation.AcceptableEvidence
 	switch {
 	case initiation.FreshnessKind != workload.FreshnessKind_FRESHNESS_KIND_PRESENT_NONCE:
-		return fmt.Errorf("initiate: Freshness Kind %s, this workload embeds a present-nonce Handle", initiation.FreshnessKind)
+		return fmt.Errorf("initiate: Freshness Kind %s, this Workload embeds a present-nonce Handle", initiation.FreshnessKind)
 	case len(initiation.FreshnessHandle) < 16 || len(initiation.FreshnessHandle) > 64:
 		return fmt.Errorf("initiate: a present-nonce Handle of %d octets", len(initiation.FreshnessHandle))
 	case len(initiation.AcceptableEvidence) > 0 && !slices.Contains(initiation.AcceptableEvidence, platform.TSMReportMediaTypeCBOR):
-		return fmt.Errorf("initiate: the Evidence formats accepted are %v, this workload produces %s", initiation.AcceptableEvidence, platform.TSMReportMediaTypeCBOR)
+		return fmt.Errorf("initiate: the Evidence formats accepted are %v, this Workload produces %s", initiation.AcceptableEvidence, platform.TSMReportMediaTypeCBOR)
 	}
 	switch initiation.Mode {
 	case workload.CredentialAcquisitionMode_CREDENTIAL_ACQUISITION_MODE_ENROLL:
 		if !slices.Contains(initiation.AcceptableCsk, cskAlgorithm) {
-			return fmt.Errorf("initiate: the Credential Authority accepts %v, this workload signs with %s", initiation.AcceptableCsk, cskAlgorithm)
+			return fmt.Errorf("initiate: the Credential Authority accepts %v, this Workload signs with %s", initiation.AcceptableCsk, cskAlgorithm)
 		}
 		return enroll(ctx, r, client, plugin, initiation, credentialType, out)
 	case workload.CredentialAcquisitionMode_CREDENTIAL_ACQUISITION_MODE_RETRIEVE:
@@ -350,7 +350,7 @@ func enroll(ctx context.Context, r *result, client *workloadapi.Client, plugin p
 // container the vault sealed to it, opened here and nowhere else.
 func retrieve(ctx context.Context, r *result, client *workloadapi.Client, plugin platform.Plugin, initiation *workload.InitiateCredentialAcquisitionResponse, credentialType workload.CredentialType, out string, vaultKey *ecdsa.PublicKey, maxValidity int) error {
 	// 2. The Credential Encryption Key, for the first suite of the vault's
-	// this workload supports: the hybrid MLKEM768-P256 first, then P-256.
+	// this Workload supports: the hybrid MLKEM768-P256 first, then P-256.
 	var alg platform.EncryptionAlgorithm
 	var suite container.Suite
 	for _, token := range initiation.AcceptableCek {
@@ -368,7 +368,7 @@ func retrieve(ctx context.Context, r *result, client *workloadapi.Client, plugin
 		break
 	}
 	if alg == platform.EncryptionAlgorithmUnspecified {
-		return fmt.Errorf("initiate: the Secret Vault seals to %v, none of which this workload opens", initiation.AcceptableCek)
+		return fmt.Errorf("initiate: the Secret Vault seals to %v, none of which this Workload opens", initiation.AcceptableCek)
 	}
 	r.Suite = suite.KEM + "+" + suite.KDF + "+" + suite.AEAD
 	cek, err := plugin.GenerateCEK(alg)
@@ -421,7 +421,7 @@ func retrieve(ctx context.Context, r *result, client *workloadapi.Client, plugin
 
 	// 5. The container: the associated data names this request, the origin
 	// member verifies under the vault's key when one is held, and only this
-	// workload's CEK opens it.
+	// Workload's CEK opens it.
 	var bundle container.Bundle
 	if err := json.Unmarshal(resp.EncryptedCredentialBundle, &bundle); err != nil {
 		return fmt.Errorf("retrieve: the container is not the JSON of an encrypted credential bundle: %w", err)
@@ -460,8 +460,8 @@ func retrieve(ctx context.Context, r *result, client *workloadapi.Client, plugin
 	r.SecretBytes = len(secret)
 
 	// 6. The record: the container as received, the credential for this
-	// workload alone, the Evidence.
-	if err := os.WriteFile(filepath.Join(out, "bundle.json"), resp.EncryptedCredentialBundle, 0o644); err != nil { //nolint:gosec // sealed to this workload's key
+	// Workload alone, the Evidence.
+	if err := os.WriteFile(filepath.Join(out, "bundle.json"), resp.EncryptedCredentialBundle, 0o644); err != nil { //nolint:gosec // sealed to this Workload's key
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(out, "credential.secret"), secret, 0o600); err != nil {

@@ -1,7 +1,7 @@
-// Package platform is the TACRA Platform Plug-In of an attested workload:
+// Package platform is the TACRA Platform Plug-In of an attested Workload:
 // the Attester's side of draft-novak-rats-tacra.
 //
-// The workload calls this package to generate Credential Signing Keys (CSK)
+// The Workload calls this package to generate Credential Signing Keys (CSK)
 // and Credential Encryption Keys (CEK), and Remote Attestation Evidence bound
 // to them. The back-ends are AMD SEV-SNP (sevsnp.go) and Intel TDX (tdx.go),
 // through the Linux configfs-tsm interface: the Evidence is the hardware's

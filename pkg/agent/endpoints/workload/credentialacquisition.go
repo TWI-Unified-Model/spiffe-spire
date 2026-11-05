@@ -19,12 +19,12 @@ import (
 )
 
 // The attested credential acquisition calls of the Workload API, the
-// Credential Acquisition API of draft-novak-rats-tacra (TACRA). The agent is
-// the Credential Acquisition System Client: it attests the calling workload
+// Credential Acquisition API of draft-novak-rats-tacra (TACRA). The Agent is
+// the Credential Acquisition System Client: it attests the calling Workload
 // as it does for FetchX509SVID, picks the registration entry whose identity
-// the workload acquires, and forwards the call to the server, which issues
+// the Workload acquires, and forwards the call to the Server, which issues
 // the Freshness Handle, appraises the Evidence, and mints or releases the
-// credential. The workload generates its key and its Evidence; the agent
+// credential. The Workload generates its key and its Evidence; the Agent
 // never sees the private key.
 
 // InitiateCredentialAcquisition processes Initiate-Credential-Acquisition for
@@ -108,12 +108,12 @@ func (h *Handler) EnrollCredential(ctx context.Context, req *workload.EnrollCred
 	svid := resp.GetSvid()
 	if len(svid.GetCertChain()) == 0 {
 		log.Error("Server returned no X509-SVID")
-		return nil, status.Error(codes.Unavailable, "server returned no X509-SVID")
+		return nil, status.Error(codes.Unavailable, "Server returned no X509-SVID")
 	}
 	spiffeID, err := idutil.IDProtoString(svid.Id)
 	if err != nil {
 		log.WithError(err).Error("Server returned an X509-SVID with a malformed SPIFFE ID")
-		return nil, status.Errorf(codes.Unavailable, "server returned an X509-SVID with a malformed SPIFFE ID: %v", err)
+		return nil, status.Errorf(codes.Unavailable, "Server returned an X509-SVID with a malformed SPIFFE ID: %v", err)
 	}
 
 	var bundle []byte
@@ -178,7 +178,7 @@ func (h *Handler) RetrieveCredential(ctx context.Context, req *workload.Retrieve
 	}
 	if len(resp.GetEncryptedCredentialBundle()) == 0 {
 		log.Error("Server returned no credential bundle")
-		return nil, status.Error(codes.Unavailable, "server returned no credential bundle")
+		return nil, status.Error(codes.Unavailable, "Server returned no credential bundle")
 	}
 
 	log.Debug("Retrieved credential bundle")
@@ -187,9 +187,9 @@ func (h *Handler) RetrieveCredential(ctx context.Context, req *workload.Retrieve
 	}, nil
 }
 
-// credentialAcquisitionEntry attests the calling workload and picks the
+// credentialAcquisitionEntry attests the calling Workload and picks the
 // registration entry whose identity it acquires: the entry whose hint is the
-// Credential Hint when the workload names one and an entry carries it,
+// Credential Hint when the Workload names one and an entry carries it,
 // otherwise the first of its entries, the default identity, in the order
 // FetchX509SVID lists them. A Credential Hint no entry carries is the
 // Relying Party's to use, ignore or reject (TACRA), so it travels on.
@@ -215,13 +215,13 @@ func (h *Handler) credentialAcquisitionEntry(ctx context.Context, log logrus.Fie
 				return entry, selectors, nil
 			}
 		}
-		log.WithField(telemetry.Hint, hint).Debug("No entry carries the credential hint; it goes to the server with the default identity")
+		log.WithField(telemetry.Hint, hint).Debug("No entry carries the credential hint; it goes to the Server with the default identity")
 	}
 	return entries[0], selectors, nil
 }
 
 // credentialAcquisitionError logs a refused or failed call and returns the
-// status the workload sees: the server's own code when it tells the workload
+// status the Workload sees: the Server's own code when it tells the Workload
 // why the call was refused (TACRA names those reasons), Unavailable otherwise.
 func credentialAcquisitionError(log logrus.FieldLogger, msg string, err error) error {
 	log.WithError(err).Error(msg)

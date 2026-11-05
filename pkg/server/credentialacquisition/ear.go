@@ -48,7 +48,7 @@ type earVerifier struct {
 	now    func() time.Time
 }
 
-// earResult is what the server takes from verified Attestation Results.
+// earResult is what the Server takes from verified Attestation Results.
 type earResult struct {
 	Verifier    string
 	Submod      string
@@ -92,7 +92,7 @@ func parseEARKey(raw []byte) (*ecdsa.PublicKey, error) {
 		return nil, fmt.Errorf("not a PEM public key or a JWK: %w", err)
 	}
 	if !jwk.IsPublic() {
-		return nil, errors.New("holds a private key; the server is given the public key alone")
+		return nil, errors.New("holds a private key; the Server is given the public key alone")
 	}
 	pub, ok := jwk.Key.(*ecdsa.PublicKey)
 	if !ok || pub.Curve != elliptic.P256() {

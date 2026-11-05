@@ -14,7 +14,7 @@ import (
 // A Veraison verifier annotates, for an SEV-SNP report, a CoMID (CoRIM,
 // draft-ietf-rats-corim) with the report's fields as the measurements of one
 // reference-value triple. The measurement keys of the AMD SEV-SNP CoRIM
-// profile this server reads, as go-gen-ref writes them.
+// profile this Server reads, as go-gen-ref writes them.
 const (
 	mKeyPolicy       = 2    // POLICY, a raw value of 8 octets
 	mKeyPlatformInfo = 7    // PLATFORM_INFO, a raw value of 8 octets

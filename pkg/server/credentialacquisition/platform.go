@@ -13,13 +13,13 @@ import (
 )
 
 // ErrPlatform is wrapped by every refusal of the platform rule.
-var ErrPlatform = errors.New("the platform is not one this server accepts")
+var ErrPlatform = errors.New("the platform is not one this Server accepts")
 
-// PlatformRule is the server's rule on what verified, affirming Attestation
+// PlatformRule is the Server's rule on what verified, affirming Attestation
 // Results report about the platform: which machine, which product line,
 // which TCB, which guest policy. "Affirming" says the Evidence matched the
 // verifier's reference values; it does not say the platform is one this
-// server accepts. The rule is read from a JSON file (platform_rule_path) in
+// Server accepts. The rule is read from a JSON file (platform_rule_path) in
 // the format of the TWI-Unified-Model attestation bench, whose Relying
 // Parties apply the same rule; trust/README.md of the bench gives the reason
 // for each value.
@@ -51,7 +51,7 @@ type SNPRule struct {
 	// verified now (report version 5), each with the reason the refusal
 	// gives, e.g. {"Milan": {"4": "AMD-SB-3034"}}.
 	RequiredMitigationBits map[string]map[string]string `json:"required_mitigation_bits,omitempty"`
-	// Per product line, required mitigation bits this server admits Evidence
+	// Per product line, required mitigation bits this Server admits Evidence
 	// without, each under a named waiver recorded whenever it applies, e.g.
 	// {"Milan": {"4": "admitted without bit 4, AMD-SB-3034"}}. A bit waived
 	// must be one required.

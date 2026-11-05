@@ -10,7 +10,7 @@ import (
 const BindingLayout = "freshness-target-subject"
 
 // BindingInput is the octet string of the TACRA section "Binding Credential Keys to Evidence": each value preceded
-// by its length as a 32-bit big-endian integer, and no Relying Party or server identifier.
+// by its length as a 32-bit big-endian integer, and no Relying Party or Server identifier.
 //
 //	binding_input = len32(handle) || handle || len32(target) || target || len32(subject) || subject
 //

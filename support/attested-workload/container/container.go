@@ -1,6 +1,6 @@
 // Package container opens the encrypted credential bundle of
 // draft-novak-rats-tacra (Sealing the Released Credential): the hpke-base
-// container a Secret Vault seals to the workload's Credential Encryption Key
+// container a Secret Vault seals to the Workload's Credential Encryption Key
 // in HPKE base mode, with the associated data that names the credential
 // group, the Target, the freshness element and the Credential Hint, and,
 // when the vault authenticates itself as the origin, its signature over the
@@ -62,8 +62,8 @@ var (
 	ErrOriginRequired = errors.New("container: origin authentication required, and the container carries none")
 	ErrAttributes     = errors.New("container: an item has no key-block attributes (purpose, algorithm, exportable)")
 	ErrExportable     = errors.New("container: an item may leave the TEE")
-	ErrShared         = errors.New("container: an item is a private key shared among instances, which this workload takes none of")
-	ErrValidity       = errors.New("container: validity_seconds is missing or longer than this workload accepts")
+	ErrShared         = errors.New("container: an item is a private key shared among instances, which this Workload takes none of")
+	ErrValidity       = errors.New("container: validity_seconds is missing or longer than this Workload accepts")
 )
 
 // B64 is a byte string carried as its unpadded base64url encoding.
@@ -352,7 +352,7 @@ func DHKEMPrivateKey(k crypto.PrivateKey) (hpke.PrivateKey, error) {
 	return nil, fmt.Errorf("container: a CEK of type %T opens no hpke-base container", k)
 }
 
-// Expect is what the workload bound into its Evidence, its CEK, and its
+// Expect is what the Workload bound into its Evidence, its CEK, and its
 // policy for the Target on origin authentication: the Vault key it holds,
 // and whether the container must carry a signature under it.
 type Expect struct {
@@ -363,7 +363,7 @@ type Expect struct {
 	// CEKPub is CEKpub as the request carried it, the octets the signature
 	// covers. When nil, the KEM's own encoding of CEK's public key.
 	CEKPub []byte
-	// VaultKey is the Secret Vault's signature key the workload holds for the
+	// VaultKey is the Secret Vault's signature key the Workload holds for the
 	// Target; an origin member the container carries is verified under it.
 	// RequireOrigin refuses a container without one.
 	VaultKey      *ecdsa.PublicKey
@@ -371,7 +371,7 @@ type Expect struct {
 }
 
 // Open checks the container, the suite, the associated data and, as the
-// workload's policy says, the origin member, then decrypts.
+// Workload's policy says, the origin member, then decrypts.
 func Open(b *Bundle, exp Expect) (*Content, error) {
 	if b.Container != ContainerBase {
 		return nil, ErrContainer
@@ -418,7 +418,7 @@ func Open(b *Bundle, exp Expect) (*Content, error) {
 	return &c, nil
 }
 
-// CheckItems is the workload's policy on what it takes: every item with its
+// CheckItems is the Workload's policy on what it takes: every item with its
 // key-block attributes, nothing exportable, a shared private key only if
 // acceptShared, and a validity of at most maxValiditySeconds (0: not
 // checked).

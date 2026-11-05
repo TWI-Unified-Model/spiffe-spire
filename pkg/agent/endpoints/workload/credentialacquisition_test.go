@@ -138,7 +138,7 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 			},
 		},
 		{
-			name:       "server refuses the call",
+			name:       "Server refuses the call",
 			identities: identities,
 			req:        &workloadPB.InitiateCredentialAcquisitionRequest{Target: "https://other.example"},
 			managerErr: status.Error(codes.PermissionDenied, "unsupported target"),
@@ -159,7 +159,7 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 			},
 		},
 		{
-			name:       "server refuses the call, wrapped by the client",
+			name:       "Server refuses the call, wrapped by the client",
 			identities: identities,
 			req:        &workloadPB.InitiateCredentialAcquisitionRequest{Target: "https://other.example"},
 			managerErr: fmt.Errorf("failed to initiate credential acquisition: %w", status.Error(codes.PermissionDenied, "unsupported target")),
@@ -180,7 +180,7 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 			},
 		},
 		{
-			name:       "server unreachable",
+			name:       "Server unreachable",
 			identities: identities,
 			req:        &workloadPB.InitiateCredentialAcquisitionRequest{Target: td.IDString()},
 			managerErr: errors.New("ohno"),
@@ -331,7 +331,7 @@ func TestEnrollCredential(t *testing.T) {
 			},
 		},
 		{
-			name:       "server refuses the binding",
+			name:       "Server refuses the binding",
 			identities: identities,
 			req:        fullReq,
 			serverResp: serverResp,
@@ -353,12 +353,12 @@ func TestEnrollCredential(t *testing.T) {
 			},
 		},
 		{
-			name:       "server returns no SVID",
+			name:       "Server returns no SVID",
 			identities: identities,
 			req:        fullReq,
 			serverResp: &credentialacquisitionv1.EnrollCredentialResponse{},
 			expectCode: codes.Unavailable,
-			expectMsg:  "server returned no X509-SVID",
+			expectMsg:  "Server returned no X509-SVID",
 			expectLogs: []spiretest.LogEntry{
 				{
 					Level:   logrus.ErrorLevel,
@@ -465,7 +465,7 @@ func TestRetrieveCredential(t *testing.T) {
 			},
 		},
 		{
-			name:       "server refuses the credential type",
+			name:       "Server refuses the credential type",
 			identities: identities,
 			req:        fullReq,
 			managerErr: status.Error(codes.PermissionDenied, "unsupported credential type"),
@@ -486,12 +486,12 @@ func TestRetrieveCredential(t *testing.T) {
 			},
 		},
 		{
-			name:       "server returns no bundle",
+			name:       "Server returns no bundle",
 			identities: identities,
 			req:        fullReq,
 			serverResp: &credentialacquisitionv1.RetrieveCredentialResponse{},
 			expectCode: codes.Unavailable,
-			expectMsg:  "server returned no credential bundle",
+			expectMsg:  "Server returned no credential bundle",
 			expectLogs: []spiretest.LogEntry{
 				{
 					Level:   logrus.ErrorLevel,
@@ -549,7 +549,7 @@ func TestRetrieveCredential(t *testing.T) {
 }
 
 // TestCredentialAcquisitionEnumsMatch guards the casts between the enums of
-// the Workload API and those of the server API: the handler converts one into
+// the Workload API and those of the Server API: the handler converts one into
 // the other by value, so the two must name the same values.
 func TestCredentialAcquisitionEnumsMatch(t *testing.T) {
 	assert.Equal(t, workloadPB.FreshnessKind_name, types.FreshnessKind_name)

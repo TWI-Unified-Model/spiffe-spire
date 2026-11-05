@@ -74,7 +74,7 @@ func TestInitiate(t *testing.T) {
 	ctx := context.Background()
 	x := newAcquirerTest(t)
 
-	t.Run("enroll target: the server mints the Handle", func(t *testing.T) {
+	t.Run("enroll target: the Server mints the Handle", func(t *testing.T) {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "x509"})
 		require.NoError(t, err)
 		require.Equal(t, ModeEnroll, res.Mode)
@@ -163,7 +163,7 @@ func TestEnroll(t *testing.T) {
 		_, err := x.a.Enroll(ctx, enrollment([]byte("0123456789abcdef0123456789abcdef")))
 		requireStatus(t, err, codes.InvalidArgument, "no initiation returned this Handle")
 	})
-	t.Run("another workload's Handle", func(t *testing.T) {
+	t.Run("another Workload's Handle", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
 		e := enrollment(handle)
 		e.EntryID = "entry-2"
@@ -314,7 +314,7 @@ func TestRetrieve(t *testing.T) {
 		_, err = x.a.Retrieve(ctx, r)
 		requireStatus(t, err, codes.InvalidArgument, "binding: the bound value differs")
 	})
-	t.Run("passport: the server obtains the Attestation Results and forwards them", func(t *testing.T) {
+	t.Run("passport: the Server obtains the Attestation Results and forwards them", func(t *testing.T) {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testPassportTarget, CredentialType: "api-key", CredentialHint: "billing"})
 		require.NoError(t, err)
 		r := retrieval()
@@ -328,7 +328,7 @@ func TestRetrieve(t *testing.T) {
 		require.Equal(t, BindingValue(res.Handle, testPassportTarget, r.CEKPub), last, "the verifier was asked with the binding value over CEKpub")
 		leg := x.vault.lastRetrieve
 		require.NotEmpty(t, leg.EAR, "the Attestation Results go to the vault")
-		require.Empty(t, leg.Evidence, "the Evidence stays with the server")
+		require.Empty(t, leg.Evidence, "the Evidence stays with the Server")
 		require.Empty(t, leg.Profile)
 		require.Equal(t, testPassportTarget, leg.Target)
 		require.Equal(t, "api-key", leg.CredentialType)

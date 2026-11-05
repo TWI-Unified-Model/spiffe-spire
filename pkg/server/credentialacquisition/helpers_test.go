@@ -156,7 +156,7 @@ func newTestKey(t *testing.T) *ecdsa.PrivateKey {
 	return key
 }
 
-// testCSR is a PKCS#10 CSR signed with a P-256 key, as the workload makes it.
+// testCSR is a PKCS#10 CSR signed with a P-256 key, as the Workload makes it.
 func testCSR(t *testing.T) []byte {
 	key := newTestKey(t)
 	der, err := x509.CreateCertificateRequest(rand.Reader, &x509.CertificateRequest{
