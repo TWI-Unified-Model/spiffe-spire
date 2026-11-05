@@ -39,8 +39,8 @@ const (
 	FreshnessAbsentNone      = "absent-none"
 )
 
-// The Credential Type tokens of TACRA.
-var credentialTypeTokens = []string{"x509", "wic", "wit", "jwt", "api-key", "psk", "private-key"}
+// The Credential Types of TACRA.
+var credentialTypes = []string{"x509", "wic", "wit", "jwt", "api-key", "psk", "private-key"}
 
 // The Credential Types Enrollment mints.
 var enrollableCredentialTypes = []string{"x509", "wic"}
@@ -93,7 +93,7 @@ type TargetConfig struct {
 	// Mode is enroll or retrieve.
 	Mode string `hcl:"mode"`
 
-	// CredentialTypes are the Credential Type tokens served for the Target.
+	// CredentialTypes are the Credential Types served for the Target.
 	// Enrollment serves x509 and wic.
 	CredentialTypes []string `hcl:"credential_types"`
 
@@ -307,8 +307,8 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 			return fail("rats_model %q is not passport or background-check", t.RATSModel)
 		}
 		for _, ct := range p.CredentialTypes {
-			if !slices.Contains(credentialTypeTokens, ct) {
-				return fail("credential type %q is not a TACRA token", ct)
+			if !slices.Contains(credentialTypes, ct) {
+				return fail("credential type %q is not one the profile defines", ct)
 			}
 		}
 		if p.FreshnessKind != "" && p.FreshnessKind != FreshnessPresentNonce {

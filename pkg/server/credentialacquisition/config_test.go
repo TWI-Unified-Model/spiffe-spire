@@ -72,11 +72,11 @@ func TestConfigValidate(t *testing.T) {
 			c.Target["spiffe://example.org"].Mode = ModeRetrieve
 			c.Target["spiffe://example.org"].RATSModel = "oracle"
 		}, err: `rats_model "oracle" is not passport or background-check`},
-		{name: "retrieve credential type token", mutate: func(c *Config) {
+		{name: "a credential type the profile does not define", mutate: func(c *Config) {
 			c.SecretVault = &SecretVaultConfig{URL: "https://vault.example"}
 			c.Target["spiffe://example.org"].Mode = ModeRetrieve
 			c.Target["spiffe://example.org"].CredentialTypes = []string{"password"}
-		}, err: `credential type "password" is not a TACRA token`},
+		}, err: `credential type "password" is not one the profile defines`},
 		{name: "verifier without key", mutate: func(c *Config) { c.Verifier["veraison"].EARKeyPath = "" }, err: "ear_key_path is required"},
 		{name: "verifier without provider", mutate: func(c *Config) { c.Verifier["veraison"].Provider = "" }, err: "provider is required"},
 		{name: "vault without url", mutate: func(c *Config) { c.SecretVault = &SecretVaultConfig{} }, err: "secret_vault: url is required"},

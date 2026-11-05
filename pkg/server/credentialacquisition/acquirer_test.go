@@ -103,11 +103,11 @@ func TestInitiate(t *testing.T) {
 		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: "https://other.example"})
 		requireStatus(t, err, codes.NotFound, "unsupported target")
 	})
-	t.Run("credential type not a token", func(t *testing.T) {
+	t.Run("a credential type the profile does not define", func(t *testing.T) {
 		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "password"})
 		requireStatus(t, err, codes.InvalidArgument, "is not one the profile defines")
 	})
-	t.Run("credential type not served", func(t *testing.T) {
+	t.Run("a credential type not supported for the Target", func(t *testing.T) {
 		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "jwt"})
 		requireStatus(t, err, codes.Unimplemented, "supported: x509")
 	})
@@ -152,6 +152,25 @@ func TestEnroll(t *testing.T) {
 		last := x.verifier.nonces[len(x.verifier.nonces)-1]
 		x.verifier.mu.Unlock()
 		require.Equal(t, BindingValue(handle, testTarget, csr), last, "the verifier was asked with the binding value as the nonce")
+	})
+	t.Run("a Credential Type not supported, named at enrollment only, is refused after the attestation", func(t *testing.T) {
+		handle := initiate(t, "", "")
+		e := enrollment(handle)
+		e.CredentialType = "jwt"
+		_, err := x.a.Enroll(ctx, e)
+		requireStatus(t, err, codes.Unimplemented, "supported: x509")
+	})
+	t.Run("a failed attestation is refused before the Credential Type is considered", func(t *testing.T) {
+		x.verifier.setAnswer(func(_, _ []byte, _ string) (string, string) {
+			key := newTestKey(t)
+			return "complete", signEAR(t, key, []byte("other"), x.now, "SEVSNP", "affirming", snpCoMID(t, gcpMilan()))
+		})
+		defer x.restoreVerifier(t)
+		handle := initiate(t, "", "")
+		e := enrollment(handle)
+		e.CredentialType = "jwt"
+		_, err := x.a.Enroll(ctx, e)
+		requireStatus(t, err, codes.PermissionDenied, "remote attestation failed")
 	})
 	t.Run("a Handle is single use", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
@@ -333,6 +352,18 @@ func TestRetrieve(t *testing.T) {
 		require.Empty(t, leg.Profile)
 		require.Equal(t, testPassportTarget, leg.Target)
 		require.Equal(t, "api-key", leg.CredentialType)
+	})
+	t.Run("passport: a Credential Type not supported, named at retrieval only, is refused after the Attestation Results", func(t *testing.T) {
+		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testPassportTarget, CredentialHint: "billing"})
+		require.NoError(t, err)
+		r := retrieval()
+		r.Target, r.CredentialType, r.FreshnessElement = testPassportTarget, "psk", res.Handle
+		_, err = x.a.Retrieve(ctx, r)
+		requireStatus(t, err, codes.Unimplemented, "supported: api-key")
+		x.verifier.mu.Lock()
+		asked := len(x.verifier.nonces)
+		x.verifier.mu.Unlock()
+		require.Positive(t, asked, "the verifier was asked before the type was refused")
 	})
 	t.Run("passport: no verifier for the Evidence's provider", func(t *testing.T) {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testPassportTarget, CredentialType: "api-key", CredentialHint: "billing"})

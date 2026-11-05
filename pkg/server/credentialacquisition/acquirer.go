@@ -220,9 +220,6 @@ func (a *Acquirer) Enroll(ctx context.Context, in Enrollment) (*EnrollmentResult
 	if err != nil {
 		return nil, err
 	}
-	if err := p.servesCredentialType(in.CredentialType); err != nil {
-		return nil, err
-	}
 	if err := checkBinding(in.BindingMethod, in.BindingHash); err != nil {
 		return nil, err
 	}
@@ -241,6 +238,11 @@ func (a *Acquirer) Enroll(ctx context.Context, in Enrollment) (*EnrollmentResult
 	bv := BindingValue(in.FreshnessElement, in.Target, in.CSR)
 	res, err := a.appraise(ctx, p, in.Evidence, profile, bv)
 	if err != nil {
+		return nil, err
+	}
+	// The Credential Type after the attestation: a request that failed attestation is refused for that, whatever it
+	// asked for; one that passed and asks for a type the policy does not support is refused for the type.
+	if err := p.servesCredentialType(in.CredentialType); err != nil {
 		return nil, err
 	}
 	return &EnrollmentResult{
@@ -275,9 +277,6 @@ type Retrieval struct {
 func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 	p, err := a.policy(in.Target, ModeRetrieve)
 	if err != nil {
-		return nil, err
-	}
-	if err := p.servesCredentialType(in.CredentialType); err != nil {
 		return nil, err
 	}
 	if err := checkBinding(in.BindingMethod, in.BindingHash); err != nil {
@@ -319,6 +318,11 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 		case err != nil:
 			return nil, status.Errorf(codes.PermissionDenied, "remote attestation failed: %v", err)
 		}
+		// the Credential Type after the Attestation Results, as at enrollment; in Background Check the Secret Vault
+		// appraises and applies its own policy to the type, which this Server relays
+		if err := p.servesCredentialType(in.CredentialType); err != nil {
+			return nil, err
+		}
 		leg.EAR = ear
 	default:
 		leg.Evidence = base64.RawURLEncoding.EncodeToString(in.Evidence)
@@ -356,7 +360,7 @@ func (p *Policy) servesCredentialType(credentialType string) error {
 	if credentialType == "" {
 		return nil
 	}
-	if !slices.Contains(credentialTypeTokens, credentialType) {
+	if !slices.Contains(credentialTypes, credentialType) {
 		return status.Errorf(codes.InvalidArgument, "credential type %q is not one the profile defines", credentialType)
 	}
 	if len(p.CredentialTypes) > 0 && !slices.Contains(p.CredentialTypes, credentialType) {

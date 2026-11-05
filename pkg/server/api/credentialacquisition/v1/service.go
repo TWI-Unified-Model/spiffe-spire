@@ -71,7 +71,7 @@ func (s *Service) InitiateCredentialAcquisition(ctx context.Context, req *creden
 	rpccontext.AddRPCAuditFields(ctx, logrus.Fields{
 		telemetry.RegistrationID: req.EntryId,
 		"target":                 req.Target,
-		"credential_type":        credentialTypeToken(req.CredentialType),
+		"credential_type":        credentialTypeName(req.CredentialType),
 	})
 
 	entry, agentID, err := s.authorizedEntry(ctx, log, req.EntryId)
@@ -88,7 +88,7 @@ func (s *Service) InitiateCredentialAcquisition(ctx context.Context, req *creden
 		EntryID:        req.EntryId,
 		AgentID:        agentID.String(),
 		Target:         req.Target,
-		CredentialType: credentialTypeToken(req.CredentialType),
+		CredentialType: credentialTypeName(req.CredentialType),
 		CredentialHint: req.CredentialHint,
 	})
 	if err != nil {
@@ -101,8 +101,8 @@ func (s *Service) InitiateCredentialAcquisition(ctx context.Context, req *creden
 	rpccontext.AuditRPC(ctx)
 
 	return &credentialacquisitionv1.InitiateCredentialAcquisitionResponse{
-		Mode:               modeFromToken(result.Mode),
-		FreshnessKind:      freshnessKindFromToken(result.FreshnessKind),
+		Mode:               modeFromName(result.Mode),
+		FreshnessKind:      freshnessKindFromName(result.FreshnessKind),
 		FreshnessHandle:    result.Handle,
 		ExpiresIn:          result.ExpiresIn,
 		MaxAge:             result.MaxAge,
@@ -120,8 +120,8 @@ func (s *Service) EnrollCredential(ctx context.Context, req *credentialacquisiti
 		telemetry.RegistrationID: req.EntryId,
 		telemetry.Csr:            api.HashByte(req.Csr),
 		"target":                 req.Target,
-		"credential_type":        credentialTypeToken(req.CredentialType),
-		"freshness_kind":         freshnessKindToken(req.FreshnessKind),
+		"credential_type":        credentialTypeName(req.CredentialType),
+		"freshness_kind":         freshnessKindName(req.FreshnessKind),
 	})
 
 	switch {
@@ -151,9 +151,9 @@ func (s *Service) EnrollCredential(ctx context.Context, req *credentialacquisiti
 		EntryID:          req.EntryId,
 		AgentID:          agentID.String(),
 		Target:           req.Target,
-		CredentialType:   credentialTypeToken(req.CredentialType),
+		CredentialType:   credentialTypeName(req.CredentialType),
 		CredentialHint:   req.CredentialHint,
-		FreshnessKind:    freshnessKindToken(req.FreshnessKind),
+		FreshnessKind:    freshnessKindName(req.FreshnessKind),
 		FreshnessElement: req.FreshnessElement,
 		CSR:              req.Csr,
 		Evidence:         req.Evidence,
@@ -207,8 +207,8 @@ func (s *Service) RetrieveCredential(ctx context.Context, req *credentialacquisi
 	rpccontext.AddRPCAuditFields(ctx, logrus.Fields{
 		telemetry.RegistrationID: req.EntryId,
 		"target":                 req.Target,
-		"credential_type":        credentialTypeToken(req.CredentialType),
-		"freshness_kind":         freshnessKindToken(req.FreshnessKind),
+		"credential_type":        credentialTypeName(req.CredentialType),
+		"freshness_kind":         freshnessKindName(req.FreshnessKind),
 	})
 
 	switch {
@@ -234,9 +234,9 @@ func (s *Service) RetrieveCredential(ctx context.Context, req *credentialacquisi
 		EntryID:          req.EntryId,
 		AgentID:          agentID.String(),
 		Target:           req.Target,
-		CredentialType:   credentialTypeToken(req.CredentialType),
+		CredentialType:   credentialTypeName(req.CredentialType),
 		CredentialHint:   req.CredentialHint,
-		FreshnessKind:    freshnessKindToken(req.FreshnessKind),
+		FreshnessKind:    freshnessKindName(req.FreshnessKind),
 		FreshnessElement: req.FreshnessElement,
 		CEKPub:           req.CekPub,
 		Evidence:         req.Evidence,
@@ -274,9 +274,9 @@ func (s *Service) authorizedEntry(ctx context.Context, log logrus.FieldLogger, e
 	return entry, callerID, nil
 }
 
-// The TACRA tokens of the enums of the Server API.
+// The names the TACRA EST profile gives the values of the enums of the Server API.
 
-func credentialTypeToken(t types.CredentialType) string {
+func credentialTypeName(t types.CredentialType) string {
 	switch t {
 	case types.CredentialType_CREDENTIAL_TYPE_X509:
 		return "x509"
@@ -297,7 +297,7 @@ func credentialTypeToken(t types.CredentialType) string {
 	}
 }
 
-func freshnessKindToken(k types.FreshnessKind) string {
+func freshnessKindName(k types.FreshnessKind) string {
 	switch k {
 	case types.FreshnessKind_FRESHNESS_KIND_ABSENT_NONE:
 		return credentialacquisition.FreshnessAbsentNone
@@ -314,7 +314,7 @@ func freshnessKindToken(k types.FreshnessKind) string {
 	}
 }
 
-func freshnessKindFromToken(k string) types.FreshnessKind {
+func freshnessKindFromName(k string) types.FreshnessKind {
 	switch k {
 	case credentialacquisition.FreshnessAbsentNone:
 		return types.FreshnessKind_FRESHNESS_KIND_ABSENT_NONE
@@ -331,7 +331,7 @@ func freshnessKindFromToken(k string) types.FreshnessKind {
 	}
 }
 
-func modeFromToken(m string) types.CredentialAcquisitionMode {
+func modeFromName(m string) types.CredentialAcquisitionMode {
 	switch m {
 	case credentialacquisition.ModeEnroll:
 		return types.CredentialAcquisitionMode_CREDENTIAL_ACQUISITION_MODE_ENROLL

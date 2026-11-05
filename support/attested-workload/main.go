@@ -164,7 +164,7 @@ func run(ctx context.Context, r *result, socketPath, out, vaultOriginKey string,
 		"private-key": workload.CredentialType_CREDENTIAL_TYPE_PRIVATE_KEY,
 	}[r.CredentialType]
 	if !ok {
-		return fmt.Errorf("credential type %q is not a TACRA token", r.CredentialType)
+		return fmt.Errorf("credential type %q is not a Credential Type of the profile", r.CredentialType)
 	}
 	var vaultKey *ecdsa.PublicKey
 	if vaultOriginKey != "" {
