@@ -340,23 +340,27 @@ func (a *Acquirer) policy(target, mode string) (*Policy, error) {
 		return nil, status.Errorf(codes.NotFound, "unsupported target %q", target)
 	}
 	if mode != "" && p.Mode != mode {
-		return nil, status.Errorf(codes.PermissionDenied, "target %q is served in %s mode", target, p.Mode)
+		// a request to the call of the other mode does not match its Target: a malformed request, as the EST profile
+		// says, not a permission failure
+		return nil, status.Errorf(codes.InvalidArgument, "target %q is served in %s mode", target, p.Mode)
 	}
 	return p, nil
 }
 
-// servesCredentialType checks a Credential Type token against the policy:
-// an unknown token is invalid, a known one the policy does not serve is
-// refused, and the response names the ones served.
+// servesCredentialType checks a Credential Type against the policy: one the
+// profile does not define is invalid; one the policy does not support for
+// the Target is refused with Unimplemented, the gRPC code of a feature not
+// supported in this service (422 in the EST profile), and the response
+// names the ones supported.
 func (p *Policy) servesCredentialType(credentialType string) error {
 	if credentialType == "" {
 		return nil
 	}
 	if !slices.Contains(credentialTypeTokens, credentialType) {
-		return status.Errorf(codes.InvalidArgument, "credential type %q is not a TACRA token", credentialType)
+		return status.Errorf(codes.InvalidArgument, "credential type %q is not one the profile defines", credentialType)
 	}
 	if len(p.CredentialTypes) > 0 && !slices.Contains(p.CredentialTypes, credentialType) {
-		return status.Errorf(codes.PermissionDenied, "credential type %q is not served for target %q; served: %s",
+		return status.Errorf(codes.Unimplemented, "credential type %q is not supported for target %q; supported: %s",
 			credentialType, p.Name, strings.Join(p.CredentialTypes, ", "))
 	}
 	return nil
@@ -467,6 +471,8 @@ func vaultError(err error) error {
 			code = codes.InvalidArgument
 		case http.StatusForbidden:
 			code = codes.PermissionDenied
+		case http.StatusUnprocessableEntity:
+			code = codes.Unimplemented // a Credential Type the vault does not serve for the Target
 		case http.StatusNotFound:
 			code = codes.NotFound
 		case http.StatusTooManyRequests:

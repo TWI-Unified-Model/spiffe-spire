@@ -7,6 +7,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"errors"
 	"net/http"
 	"testing"
 	"time"
@@ -104,11 +105,11 @@ func TestInitiate(t *testing.T) {
 	})
 	t.Run("credential type not a token", func(t *testing.T) {
 		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "password"})
-		requireStatus(t, err, codes.InvalidArgument, "not a TACRA token")
+		requireStatus(t, err, codes.InvalidArgument, "is not one the profile defines")
 	})
 	t.Run("credential type not served", func(t *testing.T) {
 		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "jwt"})
-		requireStatus(t, err, codes.PermissionDenied, "served: x509")
+		requireStatus(t, err, codes.Unimplemented, "supported: x509")
 	})
 	t.Run("the vault's refusal is relayed", func(t *testing.T) {
 		x.vault.mu.Lock()
@@ -268,7 +269,7 @@ func TestEnroll(t *testing.T) {
 		e.Target = testVaultTarget
 		e.CredentialType = "jwt"
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.PermissionDenied, "served in retrieve mode")
+		requireStatus(t, err, codes.InvalidArgument, "served in retrieve mode")
 	})
 }
 
@@ -347,7 +348,7 @@ func TestRetrieve(t *testing.T) {
 		r.Target = testTarget
 		r.CredentialType = "x509"
 		_, err := x.a.Retrieve(ctx, r)
-		requireStatus(t, err, codes.PermissionDenied, "served in enroll mode")
+		requireStatus(t, err, codes.InvalidArgument, "served in enroll mode")
 	})
 }
 
@@ -409,4 +410,28 @@ func TestEnrollPlatformRule(t *testing.T) {
 		_, err := enroll(t)
 		requireStatus(t, err, codes.PermissionDenied, "no mitigation vector")
 	})
+}
+
+// TestVaultErrorCodes: a Secret Vault refusal reaches the Workload with the
+// gRPC code its HTTP status means in the TACRA EST profile; anything else
+// from the vault is Unavailable.
+func TestVaultErrorCodes(t *testing.T) {
+	for _, tt := range []struct {
+		status int
+		code   codes.Code
+	}{
+		{http.StatusBadRequest, codes.InvalidArgument},
+		{http.StatusUnsupportedMediaType, codes.InvalidArgument},
+		{http.StatusForbidden, codes.PermissionDenied},
+		{http.StatusUnprocessableEntity, codes.Unimplemented},
+		{http.StatusNotFound, codes.NotFound},
+		{http.StatusTooManyRequests, codes.ResourceExhausted},
+		{http.StatusBadGateway, codes.Unavailable},
+		{http.StatusInternalServerError, codes.Unavailable},
+	} {
+		err := vaultError(&vaultRefusal{Status: tt.status, Code: "code", Detail: "detail"})
+		require.Equal(t, tt.code, status.Code(err), "HTTP %d", tt.status)
+		require.Contains(t, err.Error(), "code: detail")
+	}
+	require.Equal(t, codes.Unavailable, status.Code(vaultError(errors.New("connection refused"))))
 }

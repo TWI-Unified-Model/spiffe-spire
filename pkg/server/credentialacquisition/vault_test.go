@@ -98,15 +98,15 @@ func TestVaultClient(t *testing.T) {
 	})
 	t.Run("a refusal carries the vault's status, code and detail", func(t *testing.T) {
 		f.mu.Lock()
-		f.retrieveErr = &vaultRefusal{Status: http.StatusForbidden, Code: "unsupported-credential-type", Detail: "served: api-key"}
+		f.retrieveErr = &vaultRefusal{Status: http.StatusUnprocessableEntity, Code: "unsupported-credential-type", Detail: "supported: api-key"}
 		f.mu.Unlock()
 		defer func() { f.mu.Lock(); f.retrieveErr = nil; f.mu.Unlock() }()
 		_, err := v.retrieve(context.Background(), &vaultRetrieval{})
 		var refusal *vaultRefusal
 		require.True(t, errors.As(err, &refusal))
-		require.Equal(t, http.StatusForbidden, refusal.Status)
+		require.Equal(t, http.StatusUnprocessableEntity, refusal.Status)
 		require.Equal(t, "unsupported-credential-type", refusal.Code)
-		require.Equal(t, "served: api-key", refusal.Detail)
+		require.Equal(t, "supported: api-key", refusal.Detail)
 	})
 	t.Run("a vault that is down is unavailable", func(t *testing.T) {
 		down := &vaultClient{url: "http://127.0.0.1:1", client: http.DefaultClient}

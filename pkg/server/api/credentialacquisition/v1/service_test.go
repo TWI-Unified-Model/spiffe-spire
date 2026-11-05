@@ -182,10 +182,10 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 		spiretest.RequireGRPCStatus(t, err, codes.NotFound, "entry not found or not authorized")
 	})
 	t.Run("the acquirer's refusal is relayed", func(t *testing.T) {
-		st.acquirer.err = status.Error(codes.PermissionDenied, `credential type "jwt" is not served for target "spiffe://example.org"; served: x509`)
+		st.acquirer.err = status.Error(codes.Unimplemented, `credential type "jwt" is not supported for target "spiffe://example.org"; supported: x509`)
 		defer func() { st.acquirer.err = nil }()
 		_, err := st.client.InitiateCredentialAcquisition(ctx, &credentialacquisitionv1.InitiateCredentialAcquisitionRequest{EntryId: "entry-1", Target: td.IDString(), CredentialType: types.CredentialType_CREDENTIAL_TYPE_JWT})
-		spiretest.RequireGRPCStatus(t, err, codes.PermissionDenied, `failed to initiate credential acquisition: credential type "jwt" is not served for target "spiffe://example.org"; served: x509`)
+		spiretest.RequireGRPCStatus(t, err, codes.Unimplemented, `failed to initiate credential acquisition: credential type "jwt" is not supported for target "spiffe://example.org"; supported: x509`)
 	})
 	t.Run("success", func(t *testing.T) {
 		resp, err := st.client.InitiateCredentialAcquisition(ctx, &credentialacquisitionv1.InitiateCredentialAcquisitionRequest{

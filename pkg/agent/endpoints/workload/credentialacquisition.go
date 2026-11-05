@@ -224,8 +224,10 @@ func (h *Handler) credentialAcquisitionEntry(ctx context.Context, log logrus.Fie
 }
 
 // credentialAcquisitionError logs a refused or failed call and returns the
-// status the Workload sees: the Server's own code when it tells the Workload
-// why the call was refused (TACRA names those reasons), Unavailable otherwise.
+// status the Workload sees: the Server's own code when it refuses the call
+// for a reason the Workload can act on (TACRA names those reasons) or fails
+// inside, Unavailable when the Server could not be reached or answered with
+// a code of its own transport.
 func credentialAcquisitionError(log logrus.FieldLogger, msg string, err error) error {
 	log.WithError(err).Error(msg)
 	var se interface{ GRPCStatus() *status.Status }
@@ -233,7 +235,7 @@ func credentialAcquisitionError(log logrus.FieldLogger, msg string, err error) e
 		st := se.GRPCStatus()
 		switch st.Code() {
 		case codes.InvalidArgument, codes.NotFound, codes.PermissionDenied, codes.FailedPrecondition,
-			codes.ResourceExhausted, codes.Unimplemented:
+			codes.ResourceExhausted, codes.Unimplemented, codes.Internal:
 			return status.Error(st.Code(), st.Message())
 		}
 	}

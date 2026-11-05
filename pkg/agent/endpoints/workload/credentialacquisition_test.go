@@ -494,8 +494,8 @@ func TestRetrieveCredential(t *testing.T) {
 			name:       "Server refuses the credential type",
 			identities: identities,
 			req:        fullReq,
-			managerErr: status.Error(codes.PermissionDenied, "unsupported credential type"),
-			expectCode: codes.PermissionDenied,
+			managerErr: status.Error(codes.Unimplemented, "unsupported credential type"),
+			expectCode: codes.Unimplemented,
 			expectMsg:  "unsupported credential type",
 			expectLogs: []spiretest.LogEntry{
 				{
@@ -506,7 +506,7 @@ func TestRetrieveCredential(t *testing.T) {
 						"method":        "RetrieveCredential",
 						"spiffe_id":     "spiffe://domain.test/internal",
 						"entry_id":      "id-internal",
-						logrus.ErrorKey: "rpc error: code = PermissionDenied desc = unsupported credential type",
+						logrus.ErrorKey: "rpc error: code = Unimplemented desc = unsupported credential type",
 					},
 				},
 			},
