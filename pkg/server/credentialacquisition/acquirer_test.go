@@ -105,11 +105,11 @@ func TestInitiate(t *testing.T) {
 	})
 	t.Run("a Credential Type that is not one of TACRA", func(t *testing.T) {
 		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "password"})
-		requireStatus(t, err, codes.InvalidArgument, "is not one of TACRA")
+		requireStatus(t, err, codes.InvalidArgument, `Credential Type "password" is not one of TACRA`)
 	})
 	t.Run("a Credential Type not supported for the Target", func(t *testing.T) {
 		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "jwt"})
-		requireStatus(t, err, codes.Unimplemented, "supported: x509")
+		requireStatus(t, err, codes.Unimplemented, `Credential Type "jwt" is not supported for Target "spiffe://example.org"`)
 	})
 	t.Run("a refusal of the Secret Vault is relayed", func(t *testing.T) {
 		x.vault.mu.Lock()
@@ -158,7 +158,7 @@ func TestEnroll(t *testing.T) {
 		e := enrollment(handle)
 		e.CredentialType = "jwt"
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.Unimplemented, "supported: x509")
+		requireStatus(t, err, codes.Unimplemented, `Credential Type "jwt" is not supported for Target "spiffe://example.org"`)
 	})
 	t.Run("a failed attestation is refused before the Credential Type is considered", func(t *testing.T) {
 		x.verifier.setAnswer(func(_, _ []byte, _ string) (string, string) {
@@ -170,7 +170,7 @@ func TestEnroll(t *testing.T) {
 		e := enrollment(handle)
 		e.CredentialType = "jwt"
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.PermissionDenied, "remote attestation failed")
+		requireStatus(t, err, codes.PermissionDenied, "the Attestation Results are not signed by a Verifier that the policy of the Target names")
 	})
 	t.Run("a Handle is single use", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
@@ -188,35 +188,35 @@ func TestEnroll(t *testing.T) {
 		e := enrollment(handle)
 		e.EntryID = "entry-2"
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.InvalidArgument, "freshness")
+		requireStatus(t, err, codes.InvalidArgument, "differ from the initiation")
 	})
 	t.Run("the Credential Type named at initiation must be repeated", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
 		e := enrollment(handle)
 		e.CredentialType = ""
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.InvalidArgument, "not repeated")
+		requireStatus(t, err, codes.InvalidArgument, "a Credential Type or Credential Hint it named is not repeated")
 	})
 	t.Run("the binding must name binding-input and sha512", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
 		e := enrollment(handle)
 		e.BindingHash = "sha256"
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.InvalidArgument, "is not recognized")
+		requireStatus(t, err, codes.InvalidArgument, `binding "binding-input" with "sha256" is not recognized`)
 	})
 	t.Run("the Freshness Kind must be the one named at initiation", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
 		e := enrollment(handle)
 		e.FreshnessKind = FreshnessAbsentNone
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.InvalidArgument, "the kind named at initiation")
+		requireStatus(t, err, codes.InvalidArgument, "differs from present-nonce, the kind named at initiation")
 	})
 	t.Run("an Evidence format not accepted", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
 		e := enrollment(handle)
 		e.EvidenceProfile = "application/octet-stream"
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.InvalidArgument, "is not accepted")
+		requireStatus(t, err, codes.InvalidArgument, `Evidence format "application/octet-stream" is not accepted`)
 	})
 	t.Run("a CSR of another key algorithm", func(t *testing.T) {
 		rsaKey, err := rsa.GenerateKey(rand.Reader, 2048)
@@ -227,7 +227,7 @@ func TestEnroll(t *testing.T) {
 		e := enrollment(handle)
 		e.CSR = rsaCSR
 		_, err = x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.InvalidArgument, "acceptable CSK algorithms")
+		requireStatus(t, err, codes.InvalidArgument, "the CSR key or signature is not one of the acceptable CSK algorithms")
 	})
 	t.Run("a malformed CSR", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
@@ -237,16 +237,18 @@ func TestEnroll(t *testing.T) {
 		requireStatus(t, err, codes.InvalidArgument, "malformed CSR")
 	})
 	t.Run("a substituted CSR fails the binding", func(t *testing.T) {
-		// the Verifier answers the nonce it was asked for, so the only way the
-		// binding fails here is the Attestation Results naming another nonce
+		// The mock Verifier puts, as the nonce of its Attestation Results, the
+		// binding value the Server sent when it opened the session; the Server
+		// computes that value from the CSR it received, so the CSR cannot be
+		// substituted after the fact. The mock reports another nonce instead,
+		// which is what a substituted CSR looks like to the Server.
 		x.verifier.setAnswer(func(_, _ []byte, _ string) (string, string) {
-			key := newTestKey(t)
-			return "complete", signEAR(t, key, []byte("other"), x.now, "SEVSNP", "affirming", snpCoMID(t, gcpMilan()))
+			return "complete", signEAR(t, x.veraisonKey, []byte("other"), x.now, "SEVSNP", "affirming", snpCoMID(t, gcpMilan()))
 		})
 		defer x.restoreVerifier(t)
 		handle := initiate(t, "x509", "")
 		_, err := x.a.Enroll(ctx, enrollment(handle))
-		requireStatus(t, err, codes.PermissionDenied, "remote attestation failed")
+		requireStatus(t, err, codes.PermissionDenied, "the Attestation Results report a nonce that is not the binding value")
 	})
 	t.Run("a launch measurement not admitted", func(t *testing.T) {
 		h := gcpMilan()
@@ -256,7 +258,7 @@ func TestEnroll(t *testing.T) {
 		defer x.restoreVerifier(t)
 		handle := initiate(t, "x509", "")
 		_, err := x.a.Enroll(ctx, enrollment(handle))
-		requireStatus(t, err, codes.PermissionDenied, "launch measurement")
+		requireStatus(t, err, codes.PermissionDenied, "the launch measurement is not admitted for Target")
 	})
 	t.Run("a guest policy with DEBUG", func(t *testing.T) {
 		h := gcpMilan()
@@ -265,30 +267,34 @@ func TestEnroll(t *testing.T) {
 		defer x.restoreVerifier(t)
 		handle := initiate(t, "x509", "")
 		_, err := x.a.Enroll(ctx, enrollment(handle))
-		requireStatus(t, err, codes.PermissionDenied, "DEBUG")
+		requireStatus(t, err, codes.PermissionDenied, "the guest policy has DEBUG set")
 	})
 	t.Run("results that are not affirming", func(t *testing.T) {
+		// contraindicated is the lowest of the EAR trust tiers (affirming,
+		// warning, contraindicated, none): the Verifier appraised the Evidence
+		// and found it against its policy. The Server takes affirming results
+		// alone.
 		x.verifier.setAnswer(func(nonce, _ []byte, _ string) (string, string) {
 			return "complete", signEAR(t, x.veraisonKey, nonce, x.now, "SEVSNP", "contraindicated", snpCoMID(t, gcpMilan()))
 		})
 		defer x.restoreVerifier(t)
 		handle := initiate(t, "x509", "")
 		_, err := x.a.Enroll(ctx, enrollment(handle))
-		requireStatus(t, err, codes.PermissionDenied, "not affirming")
+		requireStatus(t, err, codes.PermissionDenied, `the Attestation Results are not affirming: SEVSNP is "contraindicated"`)
 	})
 	t.Run("Evidence of a provider no policy Verifier appraises", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
 		e := enrollment(handle)
 		e.Evidence = testEvidence(t, "tdx_guest")
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.PermissionDenied, "none of the Verifiers")
+		requireStatus(t, err, codes.PermissionDenied, "none of the Verifiers named by the policy of the Target appraises Evidence of this provider")
 	})
 	t.Run("a retrieve Target refuses enrollment", func(t *testing.T) {
 		e := enrollment([]byte("0123456789abcdef0123456789abcdef"))
 		e.Target = testVaultTarget
 		e.CredentialType = "jwt"
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.InvalidArgument, "served in retrieve mode")
+		requireStatus(t, err, codes.InvalidArgument, "is served in retrieve mode")
 	})
 }
 
@@ -359,7 +365,7 @@ func TestRetrieve(t *testing.T) {
 		r := retrieval()
 		r.Target, r.CredentialType, r.FreshnessElement = testPassportTarget, "psk", res.Handle
 		_, err = x.a.Retrieve(ctx, r)
-		requireStatus(t, err, codes.Unimplemented, "supported: api-key")
+		requireStatus(t, err, codes.Unimplemented, `Credential Type "psk" is not supported for Target "https://passport.example"`)
 		x.verifier.mu.Lock()
 		asked := len(x.verifier.nonces)
 		x.verifier.mu.Unlock()
@@ -372,14 +378,14 @@ func TestRetrieve(t *testing.T) {
 		r.Target, r.CredentialType, r.FreshnessElement = testPassportTarget, "api-key", res.Handle
 		r.Evidence = testEvidence(t, "tdx_guest")
 		_, err = x.a.Retrieve(ctx, r)
-		requireStatus(t, err, codes.PermissionDenied, "none of the Verifiers")
+		requireStatus(t, err, codes.PermissionDenied, "none of the Verifiers named by the policy of the Target appraises Evidence of this provider")
 	})
 	t.Run("an enroll Target refuses retrieval", func(t *testing.T) {
 		r := retrieval()
 		r.Target = testTarget
 		r.CredentialType = "x509"
 		_, err := x.a.Retrieve(ctx, r)
-		requireStatus(t, err, codes.InvalidArgument, "served in enroll mode")
+		requireStatus(t, err, codes.InvalidArgument, "is served in enroll mode")
 	})
 }
 
@@ -439,7 +445,7 @@ func TestEnrollPlatformRule(t *testing.T) {
 		x.setVerifierHost(t, h)
 		defer x.restoreVerifier(t)
 		_, err := enroll(t)
-		requireStatus(t, err, codes.PermissionDenied, "no mitigation vector")
+		requireStatus(t, err, codes.PermissionDenied, "the report carries no mitigation vector")
 	})
 }
 

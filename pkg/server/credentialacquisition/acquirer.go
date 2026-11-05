@@ -440,7 +440,7 @@ func (a *Acquirer) appraise(ctx context.Context, p *Policy, evidence []byte, pro
 		return nil, status.Errorf(codes.PermissionDenied, "remote attestation failed: %v", err)
 	}
 	if !p.AllowAnyMeasurement && !slices.ContainsFunc(p.Measurements, func(m []byte) bool { return bytes.Equal(m, res.Measurement) }) {
-		return nil, status.Errorf(codes.PermissionDenied, "remote attestation failed: launch measurement %x is not admitted for Target %q", res.Measurement, p.Name)
+		return nil, status.Errorf(codes.PermissionDenied, "remote attestation failed: the launch measurement is not admitted for Target %q: %x", p.Name, res.Measurement)
 	}
 	if a.platform != nil {
 		waived, err := a.platform.Check(res)
