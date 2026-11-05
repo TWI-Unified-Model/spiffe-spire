@@ -1,11 +1,14 @@
-// Package credentialacquisition implements the Credential Acquisition System
-// Server of draft-novak-rats-tacra (TACRA) in SPIRE Server, behind the
-// CredentialAcquisition Server API: for a Workload an Agent attested, it
-// issues the Freshness Handle, sends the Evidence of the Workload to a RATS
-// Verifier, verifies the Attestation Results and the binding of the
-// credential key to the Evidence, and, as the Credential Authority, lets the
-// CA of the Server mint an X509-SVID for the key, or, as the conduit to a Secret
-// Vault, returns the credential the Secret Vault released, sealed to the key.
+// Package credentialacquisition is the Credential Acquisition System Server of
+// draft-novak-rats-tacra (TACRA) inside SPIRE Server, behind the
+// CredentialAcquisition Server API. The Client is the Agent (pkg/agent); the
+// Attester is the Workload. For a Workload the Agent attested, this Server
+// issues the Freshness Handle, sends the Evidence to a RATS Verifier, and
+// verifies the Attestation Results and the binding of the Attester-held key to
+// the Evidence. In Enrollment, SPIRE Server is the Identity Provider as well:
+// its CA mints the X509-SVID, so the Credential Authority of TACRA and this
+// Server are one process. In Retrieval, the Identity Provider is the Secret
+// Vault, and this Server is the conduit that returns the credential the Secret
+// Vault released, sealed to the key of the Workload.
 package credentialacquisition
 
 import (
@@ -21,10 +24,11 @@ const (
 	ModeRetrieve = "retrieve"
 )
 
-// The RATS models a Target in retrieve mode is served in: in Passport the
-// Server, as the conduit, obtains the Attestation Results from the Verifier
-// of the Target and forwards them to the Secret Vault; in Background Check it
-// forwards the Evidence, and the Secret Vault asks the Verifier itself.
+// The RATS models a Target in retrieve mode is served in. In the Passport RATS
+// model, the Server, as the conduit, obtains the Attestation Results from the
+// Verifier for the Target and forwards them to the Secret Vault. In the
+// Background Check RATS model, the Server forwards the Evidence, and the Secret
+// Vault asks the Verifier itself.
 const (
 	ModelPassport        = "passport"
 	ModelBackgroundCheck = "background-check"
@@ -51,8 +55,8 @@ var supportedCSKAlgorithms = []string{"ecdsa-p256-sha256"}
 // Config is the credential_acquisition block of the experimental
 // configuration of the Server.
 type Config struct {
-	// Target, by Target name, is the policy for each Target this Server
-	// serves: the octet string the Workload names in its calls.
+	// Target holds the policy for each Target this Server serves, keyed by the
+	// Target name: the octet string the Workload names in its calls.
 	Target map[string]*TargetConfig `hcl:"target"`
 
 	// Verifier, by name, is a RATS Verifier this Server sends Evidence to
@@ -65,11 +69,12 @@ type Config struct {
 	// application/vnd.veraison.tsm-report+cbor.
 	AcceptableEvidence []string `hcl:"acceptable_evidence"`
 
-	// EARMaxAge is how old Attestation Results may be (default 2m).
+	// EARMaxAge is how old Attestation Results may be: a duration with its unit,
+	// as Go writes it, for example 2m or 90s; the default is 2m.
 	EARMaxAge string `hcl:"ear_max_age"`
 
-	// EARSkew is how far in the future Attestation Results may be dated
-	// (default 5s).
+	// EARSkew is how far in the future Attestation Results may be dated: a
+	// duration with its unit, for example 5s; the default is 5s.
 	EARSkew string `hcl:"ear_skew"`
 
 	// ClientCertPath and ClientKeyPath hold the certificate and key this
@@ -102,8 +107,9 @@ type TargetConfig struct {
 	// the kind its Secret Vault answers.
 	FreshnessKind string `hcl:"freshness_kind"`
 
-	// ExpiresIn is the lifetime of a Freshness Handle (default 5m, at least
-	// 1m as TACRA recommends).
+	// ExpiresIn is the lifetime of a Freshness Handle: a duration with its unit,
+	// for example 5m or 300s; the default is 5m, and TACRA recommends at least
+	// 1m.
 	ExpiresIn string `hcl:"expires_in"`
 
 	// Verifiers names the Verifiers whose Attestation Results the policy
