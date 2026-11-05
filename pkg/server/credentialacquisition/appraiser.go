@@ -135,8 +135,10 @@ func (a *appraiser) appraise(ctx context.Context, evidence []byte, mediaType str
 	return s.Result, v.name, nil
 }
 
-// clientTLS is the TLS configuration for a Verifier or the Secret Vault: its
-// CA, and the client certificate of this Server when configured.
+// clientTLS is the TLS configuration with which this Server calls a Verifier
+// or the Secret Vault: the CA that signed their server certificates and, when
+// they require mutual TLS, the certificate this Server presents to them, so
+// that they answer this Server and no other caller.
 func clientTLS(caPath, certPath, keyPath string) (*tls.Config, error) {
 	tc := &tls.Config{MinVersion: tls.VersionTLS12}
 	if caPath != "" {

@@ -7,7 +7,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// The binding input of TACRA, Binding Credential Keys to Evidence: each value
+// The binding input of the TACRA Binding (Binding Credential Keys to Evidence): each value
 // preceded by its length as a 32-bit big-endian integer. The expected values
 // were computed outside this package from the same octets.
 func TestBindingInput(t *testing.T) {

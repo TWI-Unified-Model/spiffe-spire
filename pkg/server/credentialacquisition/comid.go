@@ -11,10 +11,12 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
-// A Veraison Verifier annotates, for an SEV-SNP report, a CoMID (CoRIM,
-// draft-ietf-rats-corim) with the fields of the report as the measurements of one
-// reference-value triple. The measurement keys of the AMD SEV-SNP CoRIM
-// profile this Server reads, as go-gen-ref writes them.
+// For an SEV-SNP report, a Veraison Verifier puts a CoMID (CoRIM,
+// draft-ietf-rats-corim) into its Attestation Results: one reference-value
+// triple whose measurements are the fields from the report. The measurement
+// keys are those of the AMD SEV-SNP CoRIM profile
+// (draft-deeglaze-amd-sev-snp-corim-profile), which go-gen-ref, the converter
+// of the Veraison scheme, writes as literals; no package exports them.
 const (
 	mKeyPolicy       = 2    // POLICY, a raw value of 8 octets
 	mKeyPlatformInfo = 7    // PLATFORM_INFO, a raw value of 8 octets
@@ -38,16 +40,17 @@ const (
 	tagRawValue = 560 // tagged-bytes, a raw value
 )
 
-// The environment class of the CoMID a Veraison Verifier annotates for an
-// SEV-SNP report: the chip for a VCEK-signed report, the cloud provider for a
-// VLEK-signed one.
+// The environment class of the CoMID a Veraison Verifier puts into its
+// Attestation Results for an SEV-SNP report: the chip for a VCEK-signed
+// report, the cloud provider for a VLEK-signed one.
 const (
 	classByChip = "1.3.6.1.4.1.3704.3.1"
 	classByCSP  = "1.3.6.1.4.1.3704.3.2"
 )
 
-// snpClaims are the fields of an SEV-SNP report a Veraison Verifier
-// annotates in its Attestation Results, read from the annotated CoMID.
+// snpClaims are the fields from an SEV-SNP report, read from the CoMID a
+// Veraison Verifier puts into its Attestation Results (the annotated
+// evidence).
 type snpClaims struct {
 	class            string
 	measurement      []byte

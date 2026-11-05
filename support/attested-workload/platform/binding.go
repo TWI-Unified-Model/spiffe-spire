@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 )
 
-// BindingLayout names the binding of TACRA in a record: the freshness element, the Target and the subject, no
+// BindingLayout names the TACRA Binding in a record: the freshness element, the Target and the subject, no
 // identifier of any party.
 const BindingLayout = "freshness-target-subject"
 

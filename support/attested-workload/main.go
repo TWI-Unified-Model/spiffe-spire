@@ -48,8 +48,8 @@ import (
 	"github.com/spiffe/spire/support/attested-workload/platform"
 )
 
-// The binding of TACRA, which the Workload API carries unchanged, and the
-// CSK algorithm of this Workload.
+// The TACRA Binding, which the Workload API carries unchanged, and the CSK
+// algorithm of this Workload.
 const (
 	bindingMethod = "binding-input"
 	bindingHash   = "sha512"

@@ -183,7 +183,7 @@ type EvidenceRequest struct {
 	BoundKeyUse BoundKeyUse
 
 	// Target is the Target of Initiate-Credential-Acquisition. The
-	// back-ends bind it into Evidence (the binding input of TACRA).
+	// back-ends bind it into Evidence (the binding input of the TACRA Binding).
 	Target string
 }
 

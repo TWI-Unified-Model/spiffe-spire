@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-// The hardware vector of the binding of TACRA, three fields (the freshness element, the Target, the subject): the
+// The hardware vector of the TACRA Binding, three fields (the freshness element, the Target, the subject): the
 // present-nonce Enrollment of a SEV-SNP run on Google Cloud (20261011T151929Z), whose REPORT_DATA equals
 // SHA-512(binding_input).
 const (

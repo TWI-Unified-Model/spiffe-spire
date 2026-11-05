@@ -92,7 +92,7 @@ func TestAppraise(t *testing.T) {
 	nonce := []byte("binding value")
 	evidence := testEvidence(t, "sev_guest")
 
-	t.Run("the Verifier for the provider of the Evidence is asked with the binding value as the nonce", func(t *testing.T) {
+	t.Run("the Evidence goes to the Verifier configured for its provider, with the binding value as the nonce of the challenge", func(t *testing.T) {
 		f.setAnswer(func(gotNonce, gotEvidence []byte, mediaType string) (string, string) {
 			require.Equal(t, nonce, gotNonce)
 			require.Equal(t, evidence, gotEvidence)
@@ -105,7 +105,7 @@ func TestAppraise(t *testing.T) {
 		require.Equal(t, "veraison", name)
 		require.Equal(t, 1, f.deleted, "the session is deleted after use")
 	})
-	t.Run("a Verifier the policy does not name is not asked", func(t *testing.T) {
+	t.Run("a Verifier the policy does not name receives nothing", func(t *testing.T) {
 		_, _, err := a.appraise(context.Background(), evidence, "application/vnd.veraison.tsm-report+cbor", nonce, []string{"tdx"})
 		require.ErrorIs(t, err, ErrNoVerifier)
 	})

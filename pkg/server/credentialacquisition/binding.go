@@ -6,8 +6,8 @@ import (
 	"encoding/hex"
 )
 
-// The binding of TACRA (Binding Credential Keys to Evidence), which the
-// Workload API carries unchanged: the freshness input of the Evidence holds
+// The TACRA Binding (Binding Credential Keys to Evidence), which the Workload
+// API carries unchanged: the freshness input of the Evidence holds
 // SHA-512 of the binding input, and the binding object names the method and
 // the hash.
 const (
@@ -15,8 +15,8 @@ const (
 	BindingHash   = "sha512"
 )
 
-// BindingInput is the octet string of TACRA, Binding Credential Keys to
-// Evidence: each value preceded by its length as a 32-bit big-endian integer,
+// BindingInput is the octet string of the TACRA Binding (Binding Credential
+// Keys to Evidence): each value preceded by its length as a 32-bit big-endian integer,
 // and no identifier of any party.
 //
 //	binding_input = len32(freshness) || freshness || len32(target) || target || len32(subject) || subject
