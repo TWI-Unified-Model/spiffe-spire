@@ -357,8 +357,8 @@ func TestEnrollCredential(t *testing.T) {
 			identities: identities,
 			req:        fullReq,
 			serverResp: &credentialacquisitionv1.EnrollCredentialResponse{},
-			expectCode: codes.Unavailable,
-			expectMsg:  "Server returned no X509-SVID",
+			expectCode: codes.Internal,
+			expectMsg:  "the Server returned no X509-SVID",
 			expectLogs: []spiretest.LogEntry{
 				{
 					Level:   logrus.ErrorLevel,
@@ -368,6 +368,32 @@ func TestEnrollCredential(t *testing.T) {
 						"method":    "EnrollCredential",
 						"spiffe_id": "spiffe://domain.test/internal",
 						"entry_id":  "id-internal",
+					},
+				},
+			},
+		},
+		{
+			name:       "Server returns an SVID with a malformed SPIFFE ID",
+			identities: identities,
+			req:        fullReq,
+			serverResp: &credentialacquisitionv1.EnrollCredentialResponse{
+				Svid: &types.X509SVID{
+					Id:        &types.SPIFFEID{TrustDomain: "domain.test", Path: "no-leading-slash"},
+					CertChain: x509util.RawCertsFromCertificates(minted.Certificates),
+				},
+			},
+			expectCode: codes.Internal,
+			expectMsg:  "the Server returned an X509-SVID with a malformed SPIFFE ID: path must have a leading slash",
+			expectLogs: []spiretest.LogEntry{
+				{
+					Level:   logrus.ErrorLevel,
+					Message: "Server returned an X509-SVID with a malformed SPIFFE ID",
+					Data: logrus.Fields{
+						"service":       "WorkloadAPI",
+						"method":        "EnrollCredential",
+						"spiffe_id":     "spiffe://domain.test/internal",
+						"entry_id":      "id-internal",
+						logrus.ErrorKey: "path must have a leading slash",
 					},
 				},
 			},
@@ -490,8 +516,8 @@ func TestRetrieveCredential(t *testing.T) {
 			identities: identities,
 			req:        fullReq,
 			serverResp: &credentialacquisitionv1.RetrieveCredentialResponse{},
-			expectCode: codes.Unavailable,
-			expectMsg:  "Server returned no credential bundle",
+			expectCode: codes.Internal,
+			expectMsg:  "the Server returned no credential bundle",
 			expectLogs: []spiretest.LogEntry{
 				{
 					Level:   logrus.ErrorLevel,

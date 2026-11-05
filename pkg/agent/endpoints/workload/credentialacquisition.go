@@ -108,12 +108,12 @@ func (h *Handler) EnrollCredential(ctx context.Context, req *workload.EnrollCred
 	svid := resp.GetSvid()
 	if len(svid.GetCertChain()) == 0 {
 		log.Error("Server returned no X509-SVID")
-		return nil, status.Error(codes.Unavailable, "Server returned no X509-SVID")
+		return nil, status.Error(codes.Internal, "the Server returned no X509-SVID")
 	}
 	spiffeID, err := idutil.IDProtoString(svid.Id)
 	if err != nil {
 		log.WithError(err).Error("Server returned an X509-SVID with a malformed SPIFFE ID")
-		return nil, status.Errorf(codes.Unavailable, "Server returned an X509-SVID with a malformed SPIFFE ID: %v", err)
+		return nil, status.Errorf(codes.Internal, "the Server returned an X509-SVID with a malformed SPIFFE ID: %v", err)
 	}
 
 	var bundle []byte
@@ -178,7 +178,7 @@ func (h *Handler) RetrieveCredential(ctx context.Context, req *workload.Retrieve
 	}
 	if len(resp.GetEncryptedCredentialBundle()) == 0 {
 		log.Error("Server returned no credential bundle")
-		return nil, status.Error(codes.Unavailable, "Server returned no credential bundle")
+		return nil, status.Error(codes.Internal, "the Server returned no credential bundle")
 	}
 
 	log.Debug("Retrieved credential bundle")
