@@ -21,26 +21,26 @@ import (
 
 // Refusals of Attestation Results.
 var (
-	ErrEARSignature    = errors.New("attestation results: not signed by a verifier the Target's policy takes")
-	ErrEARStale        = errors.New("attestation results: issued too long ago or in the future")
-	ErrEARNonce        = errors.New("attestation results: the reported nonce is not the binding value")
-	ErrEARNotAffirming = errors.New("attestation results: not affirming")
-	ErrEARMalformed    = errors.New("attestation results: malformed")
+	ErrEARSignature    = errors.New("the Attestation Results are not signed by a Verifier that the policy of the Target names")
+	ErrEARStale        = errors.New("the Attestation Results were issued too long ago or in the future")
+	ErrEARNonce        = errors.New("the Attestation Results report a nonce that is not the binding value")
+	ErrEARNotAffirming = errors.New("the Attestation Results are not affirming")
+	ErrEARMalformed    = errors.New("the Attestation Results are malformed")
 )
 
-// earKey is a verifier's EAR signing key, provisioned, and the submodules
-// the verifier speaks for.
+// earKey is the EAR signing key of a Verifier, provisioned, and the submodules
+// the Verifier speaks for.
 type earKey struct {
 	name    string
 	key     *ecdsa.PublicKey
 	submods []string
 }
 
-// earVerifier verifies the Attestation Results a Veraison verifier returns:
+// earVerifier verifies the Attestation Results a Veraison Verifier returns:
 // an EAR (RFC 9711 EAT in a JWT signed ES256) that must be signed by the key
-// provisioned for a verifier the Target's policy takes, be recent, report the
+// provisioned for a Verifier that the policy of the Target names, be recent, report the
 // binding value as its eat_nonce, and be affirming for the submodule of the
-// verifier's scheme.
+// scheme of the Verifier.
 type earVerifier struct {
 	keys   []earKey
 	maxAge time.Duration
@@ -53,18 +53,18 @@ type earResult struct {
 	Verifier    string
 	Submod      string
 	IssuedAt    time.Time
-	Measurement []byte // the launch measurement the verifier annotated: SEV-SNP's MEASUREMENT, TDX's MRTD
+	Measurement []byte // the launch measurement the Verifier annotated: MEASUREMENT for SEV-SNP, MRTD for TDX
 	Raw         string // the EAR as received, for the record
-	// SNP holds the SEV-SNP report fields the verifier annotated (submodule
-	// SEVSNP), or nil with SNPErr saying why; TDX the bench's TDX verifier's
-	// annotations (submodule TDX).
+	// SNP holds the SEV-SNP report fields the Verifier annotated (submodule
+	// SEVSNP), or nil with SNPErr saying why; TDX holds the annotations of the
+	// TDX Verifier (submodule TDX).
 	SNP    *snpClaims
 	SNPErr error
 	TDX    map[string]string
 	waived []string // what the platform rule admitted the results without
 }
 
-// loadEARKey reads a verifier's EAR verification key: an EC P-256 public JWK,
+// loadEARKey reads the EAR verification key of a Verifier: an EC P-256 public JWK,
 // or a PEM public key. The key is provisioned by the operator, never fetched
 // from the verifier.
 func loadEARKey(path string) (*ecdsa.PublicKey, error) {
@@ -101,7 +101,7 @@ func parseEARKey(raw []byte) (*ecdsa.PublicKey, error) {
 	return pub, nil
 }
 
-// verify checks the EAR against the keys of the named verifiers and that it
+// verify checks the EAR against the keys of the named Verifiers and that it
 // reports wantNonce.
 func (v *earVerifier) verify(jws string, verifiers []string, wantNonce []byte) (*earResult, error) {
 	sig, err := jose.ParseSigned(jws, []jose.SignatureAlgorithm{jose.ES256})
@@ -167,5 +167,5 @@ func (v *earVerifier) verify(jws string, verifiers []string, wantNonce []byte) (
 		}
 		return res, nil
 	}
-	return nil, fmt.Errorf("%w: no submodule the signing verifier speaks for (%v)", ErrEARNotAffirming, signer.submods)
+	return nil, fmt.Errorf("%w: no submodule the signing Verifier speaks for (%v)", ErrEARNotAffirming, signer.submods)
 }

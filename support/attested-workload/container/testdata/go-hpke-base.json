@@ -34,5 +34,5 @@
   "kdf": "HKDF-SHA256",
   "aead": "AES-256-GCM"
  },
- "description": "hpke-base container with MLKEM768-P256, HKDF-SHA256 and AES-256-GCM, its origin member signed by the test Vault key: sealed by TWI bundle.SealBase (Go crypto/hpke) on 29 October 2026; test keys Copied from the TWI-Unified-Model attestation bench (bundle/testdata) without the signing key."
+ "description": "hpke-base container with MLKEM768-P256, HKDF-SHA256 and AES-256-GCM, its origin member signed by the test Vault key: sealed by TWI bundle.SealBase (Go crypto/hpke) on 29 October 2026; test keys shared with the sealing side, without the signing key."
 }

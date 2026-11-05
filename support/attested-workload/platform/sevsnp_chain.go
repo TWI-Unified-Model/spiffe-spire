@@ -11,7 +11,7 @@ import (
 	"github.com/google/go-sev-guest/verify/trust"
 )
 
-// AMD's public product chains (ASK or ASVK, and ARK), as embedded in go-sev-guest, by the common name of the ASK or
+// The public product chains of AMD (ASK or ASVK, and ARK), as embedded in go-sev-guest, by the common name of the ASK or
 // ASVK, which is the issuer of the VCEK or VLEK it certifies. The plug-in needs no network to supply them.
 var amdChains = map[string][]byte{
 	"SEV-Milan":      trust.AskArkMilanVcekBytes,
@@ -22,8 +22,8 @@ var amdChains = map[string][]byte{
 	"SEV-VLEK-Turin": trust.AskArkTurinVlekBytes,
 }
 
-// Certificate table GUIDs as the host writes them: go-sev-guest's abi
-// constants, in hex without the dashes (see snpCertGUIDs).
+// Certificate table GUIDs as the host writes them: the abi constants of
+// go-sev-guest, in hex without the dashes (see snpCertGUIDs).
 var (
 	guidVCEK = strings.ReplaceAll(abi.VcekGUID, "-", "")
 	guidVLEK = strings.ReplaceAll(abi.VlekGUID, "-", "")
@@ -36,7 +36,7 @@ type certEntry struct {
 	cert []byte
 }
 
-// completeCertTable returns the host's certificate table with AMD's ASK (or ASVK) and ARK appended when the host
+// completeCertTable returns the certificate table of the host with the AMD ASK (or ASVK) and ARK appended when the host
 // left them out, as AWS does. The table is not covered by the report signature; the Verifier checks the chain up to
 // the ARK it holds as trust anchor, so a wrong certificate here can only make the Evidence fail. added reports
 // whether anything was appended. A table that already has both, or whose VCEK or VLEK is missing, unreadable or
@@ -86,7 +86,7 @@ func completeCertTable(table []byte) (out []byte, added bool, err error) {
 }
 
 // parseAMDChain returns the DER ASK (or ASVK) and ARK of an embedded product chain. It trims the bundle first:
-// go-sev-guest's Turin VLEK bundle (v0.15.0) ends with a blank line, which kds.ParseProductCertChain refuses.
+// The Turin VLEK bundle of go-sev-guest (v0.15.0) ends with a blank line, which kds.ParseProductCertChain refuses.
 func parseAMDChain(chain []byte) (ask, ark []byte, err error) {
 	return kds.ParseProductCertChain(bytes.TrimSpace(chain))
 }
@@ -106,7 +106,7 @@ func certTableEntries(table []byte) ([]certEntry, error) {
 	return entries, nil
 }
 
-// encodeCertTable writes the entries in the layout of go-sev-guest's abi, ended
+// encodeCertTable writes the entries in the abi layout of go-sev-guest, ended
 // by an all-zero entry, with the certificates after the header.
 func encodeCertTable(entries []certEntry) []byte {
 	head := make([]byte, abi.CertTableEntrySize*(len(entries)+1))

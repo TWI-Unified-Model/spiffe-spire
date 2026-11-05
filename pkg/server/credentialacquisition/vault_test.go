@@ -13,8 +13,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fakeVault answers the TACRA API of the bench's Secret Vault gateway.
-type fakeVault struct {
+// mockVault answers the HTTP API of a TACRA Secret Vault.
+type mockVault struct {
 	server       *httptest.Server
 	mu           sync.Mutex
 	handle       []byte
@@ -25,8 +25,8 @@ type fakeVault struct {
 	container    string
 }
 
-func newFakeVault(t *testing.T) *fakeVault {
-	f := &fakeVault{handle: []byte("vault-handle-0123456789abcdef012"), container: `{"container":"hpke-base","enc":"...","ciphertext":"..."}`}
+func newMockVault(t *testing.T) *mockVault {
+	f := &mockVault{handle: []byte("vault-handle-0123456789abcdef012"), container: `{"container":"hpke-base","enc":"...","ciphertext":"..."}`}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /tacra/v1/initiate", func(w http.ResponseWriter, r *http.Request) {
 		f.mu.Lock()
@@ -68,12 +68,12 @@ func writeRefusal(w http.ResponseWriter, e *vaultRefusal) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": e.Code, "detail": e.Detail})
 }
 
-func newTestVaultClient(f *fakeVault) *vaultClient {
+func newTestVaultClient(f *mockVault) *vaultClient {
 	return &vaultClient{url: f.server.URL, client: f.server.Client()}
 }
 
 func TestVaultClient(t *testing.T) {
-	f := newFakeVault(t)
+	f := newMockVault(t)
 	v := newTestVaultClient(f)
 
 	t.Run("initiate forwards the Target, the Credential Type and the Hint", func(t *testing.T) {
@@ -89,14 +89,14 @@ func TestVaultClient(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, map[string]string{"target": "https://api.example"}, f.lastInitiate)
 	})
-	t.Run("retrieve returns the container as the vault sent it", func(t *testing.T) {
+	t.Run("retrieve returns the container as the Secret Vault sent it", func(t *testing.T) {
 		req := &vaultRetrieval{FreshnessKind: FreshnessPresentNonce, Target: "https://api.example", Handle: "aGFuZGxl", Evidence: "ZXY", CEKPub: "Y2Vr"}
 		container, err := v.retrieve(context.Background(), req)
 		require.NoError(t, err)
 		require.JSONEq(t, f.container, string(container))
 		require.Equal(t, *req, f.lastRetrieve)
 	})
-	t.Run("a refusal carries the vault's status, code and detail", func(t *testing.T) {
+	t.Run("a refusal carries the status, code and detail of the Secret Vault", func(t *testing.T) {
 		f.mu.Lock()
 		f.retrieveErr = &vaultRefusal{Status: http.StatusUnprocessableEntity, Code: "unsupported-credential-type", Detail: "supported: api-key"}
 		f.mu.Unlock()
@@ -108,7 +108,7 @@ func TestVaultClient(t *testing.T) {
 		require.Equal(t, "unsupported-credential-type", refusal.Code)
 		require.Equal(t, "supported: api-key", refusal.Detail)
 	})
-	t.Run("a vault that is down is unavailable", func(t *testing.T) {
+	t.Run("a Secret Vault that is down is unavailable", func(t *testing.T) {
 		down := &vaultClient{url: "http://127.0.0.1:1", client: http.DefaultClient}
 		_, _, err := down.initiate(context.Background(), "https://api.example", "", "")
 		require.ErrorIs(t, err, ErrVaultUnavailable)

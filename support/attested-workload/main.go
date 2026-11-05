@@ -9,7 +9,7 @@
 // TACRA binding value over the Freshness Handle, the Target and the CSR, and
 // enrolls the CSR with that Evidence: the X509-SVID it receives carries its
 // own key, which never left the Workload, and it verifies the chain against
-// the trust domain's bundle. In retrieve mode it generates a Credential
+// the bundle of the trust domain. In retrieve mode it generates a Credential
 // Encryption Key, binds its public half into the Evidence the same way, and
 // opens the container the Secret Vault sealed to it: the credential never
 // crossed the Agent or the Server in the clear. It records the exchange.
@@ -48,8 +48,8 @@ import (
 	"github.com/spiffe/spire/support/attested-workload/platform"
 )
 
-// The binding of the TACRA EST profile, which the Workload API carries
-// unchanged.
+// The binding of TACRA, which the Workload API carries unchanged, and the
+// CSK algorithm of this Workload.
 const (
 	bindingMethod = "binding-input"
 	bindingHash   = "sha512"
@@ -110,11 +110,11 @@ func main() {
 }
 
 func mainWithCode() int {
-	socketPath := flag.String("socketPath", "/tmp/spire-agent/public/api.sock", "path of the Agent's Workload API socket")
+	socketPath := flag.String("socketPath", "/tmp/spire-agent/public/api.sock", "path of the Workload API socket of the Agent")
 	target := flag.String("target", "", "the Target of the exchange (required), for example the SPIFFE ID of the trust domain")
 	credentialType := flag.String("credentialType", "x509", "the Credential Type: x509 or wic to enroll, api-key, jwt, psk, wit or private-key to retrieve")
 	hint := flag.String("hint", "", "the Credential Hint: the hint of the registration entry whose identity to acquire, or what the Secret Vault selects by")
-	vaultOriginKey := flag.String("vaultOriginKey", "", "a file holding the Secret Vault's signature key (PEM or DER SubjectPublicKeyInfo); given, the container must be signed under it")
+	vaultOriginKey := flag.String("vaultOriginKey", "", "a file holding the signature key of the Secret Vault (PEM or DER SubjectPublicKeyInfo); given, the container must be signed under it")
 	maxValidity := flag.Int("maxValidity", 3600, "the longest validity_seconds of a retrieved credential this Workload takes")
 	tee := flag.String("tee", "sev-snp", "the trusted execution environment: sev-snp or tdx")
 	out := flag.String("out", ".", "the directory the SVID, its key, the bundle and result.json are written to")
@@ -164,7 +164,7 @@ func run(ctx context.Context, r *result, socketPath, out, vaultOriginKey string,
 		"private-key": workload.CredentialType_CREDENTIAL_TYPE_PRIVATE_KEY,
 	}[r.CredentialType]
 	if !ok {
-		return fmt.Errorf("credential type %q is not a Credential Type of the profile", r.CredentialType)
+		return fmt.Errorf("the Credential Type %q is not one of TACRA", r.CredentialType)
 	}
 	var vaultKey *ecdsa.PublicKey
 	if vaultOriginKey != "" {
@@ -265,7 +265,7 @@ func enroll(ctx context.Context, r *result, client *workloadapi.Client, plugin p
 		Target:          r.Target,
 	})
 	if err != nil {
-		return fmt.Errorf("evidence: %w", err)
+		return fmt.Errorf("generating Evidence: %w", err)
 	}
 	bv := platform.BindingValue(initiation.FreshnessHandle, r.Target, csr)
 	r.BindingValueHex = hex.EncodeToString(bv[:])
@@ -347,10 +347,10 @@ func enroll(ctx context.Context, r *result, client *workloadapi.Client, plugin p
 
 // retrieve is Retrieve-Credential: a Credential Encryption Key for a suite
 // the Secret Vault accepts, Evidence bound to its public half, and the
-// container the vault sealed to it, opened here and nowhere else.
+// container the Secret Vault sealed to it, opened here and nowhere else.
 func retrieve(ctx context.Context, r *result, client *workloadapi.Client, plugin platform.Plugin, initiation *workload.InitiateCredentialAcquisitionResponse, credentialType workload.CredentialType, out string, vaultKey *ecdsa.PublicKey, maxValidity int) error {
-	// 2. The Credential Encryption Key, for the first suite of the vault's
-	// this Workload supports: the hybrid MLKEM768-P256 first, then P-256.
+	// 2. The Credential Encryption Key, for the first suite of the Secret Vault
+	// that this Workload supports: the hybrid MLKEM768-P256 first, then P-256.
 	var alg platform.EncryptionAlgorithm
 	var suite container.Suite
 	for _, token := range initiation.AcceptableCek {
@@ -390,7 +390,7 @@ func retrieve(ctx context.Context, r *result, client *workloadapi.Client, plugin
 		Target:          r.Target,
 	})
 	if err != nil {
-		return fmt.Errorf("evidence: %w", err)
+		return fmt.Errorf("generating Evidence: %w", err)
 	}
 	bv := platform.BindingValue(initiation.FreshnessHandle, r.Target, cekPub)
 	r.BindingValueHex = hex.EncodeToString(bv[:])
@@ -420,8 +420,8 @@ func retrieve(ctx context.Context, r *result, client *workloadapi.Client, plugin
 	r.RetrieveMs = ms(start)
 
 	// 5. The container: the associated data names this request, the origin
-	// member verifies under the vault's key when one is held, and only this
-	// Workload's CEK opens it.
+	// member verifies under the key of the Secret Vault when one is held, and
+	// only the CEK of this Workload opens it.
 	var bundle container.Bundle
 	if err := json.Unmarshal(resp.EncryptedCredentialBundle, &bundle); err != nil {
 		return fmt.Errorf("retrieve: the container is not the JSON of an encrypted credential bundle: %w", err)
@@ -461,7 +461,7 @@ func retrieve(ctx context.Context, r *result, client *workloadapi.Client, plugin
 
 	// 6. The record: the container as received, the credential for this
 	// Workload alone, the Evidence.
-	if err := os.WriteFile(filepath.Join(out, "bundle.json"), resp.EncryptedCredentialBundle, 0o644); err != nil { //nolint:gosec // sealed to this Workload's key
+	if err := os.WriteFile(filepath.Join(out, "bundle.json"), resp.EncryptedCredentialBundle, 0o644); err != nil { //nolint:gosec // sealed to the key of this Workload
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(out, "credential.secret"), secret, 0o600); err != nil {
@@ -470,7 +470,7 @@ func retrieve(ctx context.Context, r *result, client *workloadapi.Client, plugin
 	return os.WriteFile(filepath.Join(out, "evidence.tsm.cbor"), evidence.Token, 0o644) //nolint:gosec // the Evidence is public material
 }
 
-// loadVaultKey reads the Secret Vault's signature key: a PEM or DER
+// loadVaultKey reads the signature key of the Secret Vault: a PEM or DER
 // SubjectPublicKeyInfo of an EC P-256 key.
 func loadVaultKey(path string) (*ecdsa.PublicKey, error) {
 	raw, err := os.ReadFile(path)
@@ -494,7 +494,7 @@ func loadVaultKey(path string) (*ecdsa.PublicKey, error) {
 
 // describeReport records what the Evidence says of the launch: the TSM
 // report provider; for SEV-SNP the report version, its launch measurement
-// and the key that signed it; for TDX the quote's MRTD and TD attributes.
+// and the key that signed it; for TDX the MRTD and TD attributes of the quote.
 func describeReport(r *result, token []byte) {
 	var report struct {
 		OutBlob  []byte `json:"outblob"`

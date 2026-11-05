@@ -29,7 +29,7 @@ func TestEARVerify(t *testing.T) {
 		now:    func() time.Time { return now },
 	}
 
-	t.Run("affirming results signed by the policy's verifier are taken", func(t *testing.T) {
+	t.Run("affirming results signed by the Verifier of the policy are taken", func(t *testing.T) {
 		jws := signEAR(t, veraisonKey, nonce, now.Add(-10*time.Second), "SEVSNP", "affirming", comid)
 		res, err := v.verify(jws, []string{"veraison"}, nonce)
 		require.NoError(t, err)
@@ -41,7 +41,7 @@ func TestEARVerify(t *testing.T) {
 		require.Equal(t, classByChip, res.SNP.class)
 		require.Equal(t, now.Add(-10*time.Second), res.IssuedAt.UTC())
 	})
-	t.Run("results of a verifier the policy does not take are refused", func(t *testing.T) {
+	t.Run("results of a Verifier the policy does not take are refused", func(t *testing.T) {
 		jws := signEAR(t, veraisonKey, nonce, now, "SEVSNP", "affirming", comid)
 		_, err := v.verify(jws, []string{"other"}, nonce)
 		require.ErrorIs(t, err, ErrEARSignature)
@@ -69,7 +69,7 @@ func TestEARVerify(t *testing.T) {
 		_, err := v.verify(jws, []string{"veraison"}, nonce)
 		require.ErrorIs(t, err, ErrEARNotAffirming)
 	})
-	t.Run("results without the verifier's submodule are refused", func(t *testing.T) {
+	t.Run("results without the submodule of the Verifier are refused", func(t *testing.T) {
 		jws := signEAR(t, veraisonKey, nonce, now, "TDX", "affirming", comid)
 		_, err := v.verify(jws, []string{"veraison"}, nonce)
 		require.ErrorIs(t, err, ErrEARNotAffirming)

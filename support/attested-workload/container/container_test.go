@@ -12,9 +12,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// vector is a test vector of the TWI-Unified-Model attestation bench: a
-// container its test Vault sealed, with the CEK that opens it and the Vault's
-// signature key.
+// vector is a test vector from a hardware run: a container the test Secret
+// Vault sealed, with the CEK that opens it and the signature key of the Secret
+// Vault.
 type vector struct {
 	Description    string          `json:"description"`
 	Suite          Suite           `json:"suite"`
@@ -70,7 +70,7 @@ func TestOpenVectors(t *testing.T) {
 			fresh := unhex(t, v.Freshness)
 			cekPub := unhex(t, v.CEKPub)
 			if v.Suite == SuiteMLKEM768P256 {
-				require.Equal(t, cekPub, cek.PublicKey().Bytes(), "CEKpub from the seed differs from the vector's")
+				require.Equal(t, cekPub, cek.PublicKey().Bytes(), "CEKpub from the seed differs from the one of the vector")
 			}
 			require.Equal(t, v.Info, hex.EncodeToString(InfoBase(v.Target, fresh)))
 			aad, err := Canonical(b.AAD)

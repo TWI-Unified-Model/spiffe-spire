@@ -36,8 +36,8 @@ type Acquirer struct {
 	platform  *PlatformRule
 }
 
-// New builds the Acquirer from the configuration: it loads the verifiers'
-// keys and the TLS material, and refuses a configuration it cannot serve.
+// New builds the Acquirer from the configuration: it loads the keys of the
+// Verifiers and the TLS material, and refuses a configuration it cannot serve.
 func New(c *Config, log logrus.FieldLogger) (*Acquirer, error) {
 	policies, err := c.Validate()
 	if err != nil {
@@ -49,7 +49,7 @@ func New(c *Config, log logrus.FieldLogger) (*Acquirer, error) {
 	for name, v := range c.Verifier {
 		key, err := loadEARKey(v.EARKeyPath)
 		if err != nil {
-			return nil, fmt.Errorf("credential_acquisition: verifier %q: ear_key_path: %w", name, err)
+			return nil, fmt.Errorf("credential_acquisition: Verifier %q: ear_key_path: %w", name, err)
 		}
 		ear.keys = append(ear.keys, earKey{name: name, key: key, submods: v.Submods})
 	}
@@ -151,7 +151,7 @@ func (a *Acquirer) Initiate(ctx context.Context, in Initiation) (*InitiationResu
 		}, nil
 	default:
 		if a.vault == nil {
-			return nil, status.Error(codes.Unavailable, "no secret vault is configured")
+			return nil, status.Error(codes.Unavailable, "no Secret Vault is configured")
 		}
 		vi, handle, err := a.vault.initiate(ctx, in.Target, in.CredentialType, in.CredentialHint)
 		if err != nil {
@@ -159,13 +159,13 @@ func (a *Acquirer) Initiate(ctx context.Context, in Initiation) (*InitiationResu
 		}
 		switch {
 		case vi.Mode != ModeRetrieve:
-			return nil, status.Errorf(codes.Unavailable, "secret vault answered mode %q for a Target in retrieve mode", vi.Mode)
+			return nil, status.Errorf(codes.Unavailable, "Secret Vault answered mode %q for a Target in retrieve mode", vi.Mode)
 		case vi.FreshnessKind != FreshnessPresentNonce:
 			return nil, status.Errorf(codes.Unavailable, "Secret Vault answered Freshness Kind %q; this Server supports present-nonce", vi.FreshnessKind)
 		case len(handle) < 16 || len(handle) > 64:
-			return nil, status.Errorf(codes.Unavailable, "secret vault answered a Handle of %d octets", len(handle))
+			return nil, status.Errorf(codes.Unavailable, "Secret Vault answered a Handle of %d octets", len(handle))
 		case len(vi.AcceptableCEK) == 0:
-			return nil, status.Error(codes.Unavailable, "secret vault answered no acceptable_cek")
+			return nil, status.Error(codes.Unavailable, "Secret Vault answered no acceptable_cek")
 		}
 		expiresIn := p.ExpiresIn
 		if vi.ExpiresIn > 0 {
@@ -290,7 +290,7 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 		return nil, status.Error(codes.InvalidArgument, "cek_pub must be specified")
 	}
 	if a.vault == nil {
-		return nil, status.Error(codes.Unavailable, "no secret vault is configured")
+		return nil, status.Error(codes.Unavailable, "no Secret Vault is configured")
 	}
 	// The request is well formed: the single-use Handle is taken only now.
 	if err := a.takeSession(in.FreshnessKind, in.FreshnessElement, in.Target, in.CredentialType, in.CredentialHint, in.EntryID, in.AgentID); err != nil {
@@ -306,8 +306,8 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 	}
 	switch p.RATSModel {
 	case ModelPassport:
-		// The Server asks the verifier the policy takes and forwards the
-		// Attestation Results; the vault verifies them under the keys it holds.
+		// The Server asks the Verifier that the policy names and forwards the
+		// Attestation Results; the Secret Vault verifies them under the keys it holds.
 		bv := BindingValue(in.FreshnessElement, in.Target, in.CEKPub)
 		ear, _, err := a.appraiser.appraise(ctx, in.Evidence, profile, bv, p.Verifiers)
 		switch {
@@ -337,34 +337,34 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 
 func (a *Acquirer) policy(target, mode string) (*Policy, error) {
 	if target == "" {
-		return nil, status.Error(codes.InvalidArgument, "target must be specified")
+		return nil, status.Error(codes.InvalidArgument, "Target must be specified")
 	}
 	p, ok := a.policies[target]
 	if !ok {
-		return nil, status.Errorf(codes.NotFound, "unsupported target %q", target)
+		return nil, status.Errorf(codes.NotFound, "unsupported Target %q", target)
 	}
 	if mode != "" && p.Mode != mode {
-		// a request to the call of the other mode does not match its Target: a malformed request, as the EST profile
-		// says, not a permission failure
-		return nil, status.Errorf(codes.InvalidArgument, "target %q is served in %s mode", target, p.Mode)
+		// Enroll for a Target in retrieve mode, or Retrieve for one in enroll mode,
+		// is a malformed request, not a permission failure
+		return nil, status.Errorf(codes.InvalidArgument, "Target %q is served in %s mode", target, p.Mode)
 	}
 	return p, nil
 }
 
-// servesCredentialType checks a Credential Type against the policy: one the
-// profile does not define is invalid; one the policy does not support for
+// servesCredentialType checks a Credential Type against the policy: one that
+// is not a Credential Type of TACRA is invalid; one the policy does not support for
 // the Target is refused with Unimplemented, the gRPC code of a feature not
-// supported in this service (422 in the EST profile), and the response
+// supported in this service, and the response
 // names the ones supported.
 func (p *Policy) servesCredentialType(credentialType string) error {
 	if credentialType == "" {
 		return nil
 	}
 	if !slices.Contains(credentialTypes, credentialType) {
-		return status.Errorf(codes.InvalidArgument, "credential type %q is not one the profile defines", credentialType)
+		return status.Errorf(codes.InvalidArgument, "Credential Type %q is not one of TACRA", credentialType)
 	}
 	if len(p.CredentialTypes) > 0 && !slices.Contains(p.CredentialTypes, credentialType) {
-		return status.Errorf(codes.Unimplemented, "credential type %q is not supported for target %q; supported: %s",
+		return status.Errorf(codes.Unimplemented, "Credential Type %q is not supported for Target %q; supported: %s",
 			credentialType, p.Name, strings.Join(p.CredentialTypes, ", "))
 	}
 	return nil
@@ -380,7 +380,7 @@ func checkBinding(method, hash string) error {
 
 func (a *Acquirer) takeSession(kind string, element []byte, target, credentialType, hint, entryID, agentID string) error {
 	if kind != FreshnessPresentNonce {
-		return status.Errorf(codes.InvalidArgument, "freshness kind %q differs from the initiation's %s", kind, FreshnessPresentNonce)
+		return status.Errorf(codes.InvalidArgument, "Freshness Kind %q differs from %s, the kind named at initiation", kind, FreshnessPresentNonce)
 	}
 	if len(element) < 16 || len(element) > 64 {
 		return status.Errorf(codes.InvalidArgument, "a present-nonce Handle is 16 to 64 octets, not %d", len(element))
@@ -396,7 +396,7 @@ func (a *Acquirer) profile(profile string) (string, error) {
 		return a.evidence[0], nil
 	}
 	if !slices.Contains(a.evidence, profile) {
-		return "", status.Errorf(codes.InvalidArgument, "evidence format %q is not accepted; accepted: %s", profile, strings.Join(a.evidence, ", "))
+		return "", status.Errorf(codes.InvalidArgument, "Evidence format %q is not accepted; accepted: %s", profile, strings.Join(a.evidence, ", "))
 	}
 	return profile, nil
 }
@@ -421,9 +421,9 @@ func parseCSR(der []byte, acceptable []string) (*x509.CertificateRequest, error)
 	return nil, status.Errorf(codes.InvalidArgument, "the CSR key or signature is not one of the acceptable CSK algorithms: %s", strings.Join(acceptable, ", "))
 }
 
-// appraise sends the Evidence to the verifier the policy takes for it,
-// verifies the Attestation Results against the binding value, and applies
-// the policy's platform rules.
+// appraise sends the Evidence to the Verifier that the policy names for its
+// provider, verifies the Attestation Results against the binding value, and
+// applies the platform rules per the policy.
 func (a *Acquirer) appraise(ctx context.Context, p *Policy, evidence []byte, profile string, bindingValue []byte) (*earResult, error) {
 	ear, name, err := a.appraiser.appraise(ctx, evidence, profile, bindingValue, p.Verifiers)
 	switch {
@@ -440,7 +440,7 @@ func (a *Acquirer) appraise(ctx context.Context, p *Policy, evidence []byte, pro
 		return nil, status.Errorf(codes.PermissionDenied, "remote attestation failed: %v", err)
 	}
 	if !p.AllowAnyMeasurement && !slices.ContainsFunc(p.Measurements, func(m []byte) bool { return bytes.Equal(m, res.Measurement) }) {
-		return nil, status.Errorf(codes.PermissionDenied, "remote attestation failed: launch measurement %x is not admitted for target %q", res.Measurement, p.Name)
+		return nil, status.Errorf(codes.PermissionDenied, "remote attestation failed: launch measurement %x is not admitted for Target %q", res.Measurement, p.Name)
 	}
 	if a.platform != nil {
 		waived, err := a.platform.Check(res)
@@ -464,9 +464,9 @@ func (a *Acquirer) appraise(ctx context.Context, p *Policy, evidence []byte, pro
 	return res, nil
 }
 
-// vaultError turns a Secret Vault refusal into the status the Workload sees:
-// the vault's reason, with the code its HTTP status means in the TACRA EST
-// profile.
+// vaultError turns a refusal of the Secret Vault into the status the Workload
+// sees: the gRPC code of the HTTP status of the refusal, with the reason the
+// Secret Vault gives.
 func vaultError(err error) error {
 	if refusal, ok := errors.AsType[*vaultRefusal](err); ok {
 		code := codes.Unavailable

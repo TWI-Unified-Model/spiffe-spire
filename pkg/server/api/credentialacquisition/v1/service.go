@@ -128,7 +128,7 @@ func (s *Service) EnrollCredential(ctx context.Context, req *credentialacquisiti
 	case len(req.Csr) == 0:
 		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing CSR", nil)
 	case len(req.Evidence) == 0:
-		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing evidence", nil)
+		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing Evidence", nil)
 	case req.Binding == nil:
 		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing binding", nil)
 	}
@@ -201,7 +201,7 @@ func (s *Service) EnrollCredential(ctx context.Context, req *credentialacquisiti
 }
 
 // RetrieveCredential forwards the request to the Secret Vault and returns
-// the credential it released, sealed to the Workload's key.
+// the credential it released, sealed to the key of the Workload.
 func (s *Service) RetrieveCredential(ctx context.Context, req *credentialacquisitionv1.RetrieveCredentialRequest) (*credentialacquisitionv1.RetrieveCredentialResponse, error) {
 	log := rpccontext.Logger(ctx)
 	rpccontext.AddRPCAuditFields(ctx, logrus.Fields{
@@ -215,7 +215,7 @@ func (s *Service) RetrieveCredential(ctx context.Context, req *credentialacquisi
 	case len(req.CekPub) == 0:
 		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing cek_pub", nil)
 	case len(req.Evidence) == 0:
-		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing evidence", nil)
+		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing Evidence", nil)
 	case req.Binding == nil:
 		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing binding", nil)
 	}
@@ -274,7 +274,7 @@ func (s *Service) authorizedEntry(ctx context.Context, log logrus.FieldLogger, e
 	return entry, callerID, nil
 }
 
-// The names the TACRA EST profile gives the values of the enums of the Server API.
+// The names of the values of the enums of the Server API.
 
 func credentialTypeName(t types.CredentialType) string {
 	switch t {

@@ -21,7 +21,7 @@ func hexKey(handle []byte) []byte { return []byte(hex.EncodeToString(handle)) }
 
 func b64u(b []byte) string { return base64.RawURLEncoding.EncodeToString(b) }
 
-// testMeasurement is the launch measurement the test verifier annotates.
+// testMeasurement is the launch measurement the test Verifier annotates.
 var testMeasurement = func() []byte {
 	m := make([]byte, 48)
 	for i := range m {
@@ -30,9 +30,9 @@ var testMeasurement = func() []byte {
 	return m
 }()
 
-// snpHost describes the SEV-SNP report a test verifier annotates. The
-// defaults are those of the Google Cloud EPYC Milan hosts of the bench's
-// records: a VCEK-signed report of version 5, REPORTED_TCB and COMMITTED_TCB
+// snpHost describes the SEV-SNP report a test Verifier annotates. The
+// defaults are those of the Google Cloud EPYC Milan hosts of the recorded
+// runs: a VCEK-signed report of version 5, REPORTED_TCB and COMMITTED_TCB
 // bootloader 4, SNP 29, microcode 222, PLATFORM_INFO 0x25 (SMT on, alias check
 // complete), mitigation vectors 0xb, and the guest policy 0x30000.
 type snpHost struct {
@@ -70,10 +70,10 @@ func rawBE(v uint64) []byte {
 	return b
 }
 
-// snpCoMID builds the CoMID a Veraison verifier annotates for an SEV-SNP
+// snpCoMID builds the CoMID a Veraison Verifier annotates for an SEV-SNP
 // report: tag 506 around the CoMID map as a byte string, one reference-value
 // triple whose environment names the class (the chip, or the cloud provider)
-// and whose measurements carry the report's fields under the keys of the AMD
+// and whose measurements carry the fields of the report under the keys of the AMD
 // SEV-SNP CoRIM profile.
 func snpCoMID(t *testing.T, h snpHost) string {
 	raw := func(key uint64, b []byte) map[any]any {
@@ -116,9 +116,9 @@ func snpCoMID(t *testing.T, h snpHost) string {
 	return base64.StdEncoding.EncodeToString(outer)
 }
 
-// signEAR signs, with the verifier's key, an EAR that reports nonce for the
-// submodule with the status and the annotated evidence: for SEVSNP the
-// CoMID (snpCoMID), for TDX the bench verifier's map of strings.
+// signEAR signs, with the key of the Verifier, an EAR that reports nonce for
+// the submodule with the status and the annotated evidence: for SEVSNP the
+// CoMID (snpCoMID), for TDX the map of strings the TDX Verifier annotates.
 func signEAR(t *testing.T, key *ecdsa.PrivateKey, nonce []byte, iat time.Time, submod, status string, annotated any) string {
 	var evidence any
 	switch a := annotated.(type) {
@@ -167,8 +167,8 @@ func testCSR(t *testing.T) []byte {
 	return der
 }
 
-// testEvidence is Evidence as the bench's platform code produces it: a CBOR
-// map whose provider names the TSM report provider; the verifier reads the
+// testEvidence is Evidence as the platform package of the attested Workload produces it: a CBOR
+// map whose provider names the TSM report provider; the Verifier reads the
 // rest.
 func testEvidence(t *testing.T, provider string) []byte {
 	b, err := cbor.Marshal(map[string]any{"provider": provider, "report": []byte("report")})

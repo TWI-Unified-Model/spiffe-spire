@@ -1,14 +1,13 @@
 // Package container opens the encrypted credential bundle of
 // draft-novak-rats-tacra (Sealing the Released Credential): the hpke-base
-// container a Secret Vault seals to the Workload's Credential Encryption Key
+// container a Secret Vault seals to the Credential Encryption Key of the Workload
 // in HPKE base mode, with the associated data that names the credential
 // group, the Target, the freshness element and the Credential Hint, and,
-// when the vault authenticates itself as the origin, its signature over the
+// when the Secret Vault authenticates itself as the origin, its signature over the
 // container. Only the holder of the Credential Encryption Key opens it.
 //
-// The package is the receiving side of the bundle package of the
-// TWI-Unified-Model attestation bench (Apache-2.0), whose test vectors it
-// opens.
+// The test vectors in testdata come from the sealing side as it ran on
+// Google Cloud and AWS SEV-SNP guests and on Google Cloud TDX guests.
 package container
 
 import (
@@ -42,8 +41,7 @@ var (
 	SuiteDHKEMP256    = Suite{KEM: "DHKEM(P-256, HKDF-SHA256)", KDF: "HKDF-SHA256", AEAD: "AES-256-GCM"}
 )
 
-// The suites as the acceptable_cek tokens of the TACRA EST profile name
-// them, joined with +.
+// The suites by the names acceptable_cek carries, the parts joined with +.
 const (
 	AcceptableMLKEM768P256 = "MLKEM768-P256+HKDF-SHA256+AES-256-GCM"
 	AcceptableDHKEMP256    = "DHKEM(P-256, HKDF-SHA256)+HKDF-SHA256+AES-256-GCM"
@@ -57,8 +55,8 @@ const (
 // Refusals.
 var (
 	ErrContainer      = errors.New("container: not an hpke-base container of a known suite")
-	ErrAAD            = errors.New("container: the associated data does not name this request's Target, freshness element and Credential Hint")
-	ErrSignature      = errors.New("container: not signed by the trusted Vault key over this request's bundle")
+	ErrAAD            = errors.New("container: the associated data does not name the Target, freshness element and Credential Hint of this request")
+	ErrSignature      = errors.New("container: not signed by the trusted Secret Vault key over the bundle of this request")
 	ErrOriginRequired = errors.New("container: origin authentication required, and the container carries none")
 	ErrAttributes     = errors.New("container: an item has no key-block attributes (purpose, algorithm, exportable)")
 	ErrExportable     = errors.New("container: an item may leave the TEE")
@@ -103,7 +101,7 @@ type Bundle struct {
 	Enc        B64     `json:"enc"`
 	Ciphertext B64     `json:"ciphertext"`
 	AAD        AAD     `json:"aad"`
-	Origin     *Origin `json:"origin,omitempty"` // the Vault's origin authentication
+	Origin     *Origin `json:"origin,omitempty"` // the origin authentication of the Secret Vault
 }
 
 // Suite names the HPKE algorithms.
@@ -113,7 +111,7 @@ type Suite struct {
 	AEAD string `json:"aead"`
 }
 
-// Origin is the Secret Vault's authentication of itself as the origin of
+// Origin is the authentication of the Secret Vault as the origin of
 // the container: the name of the signature algorithm and the signature.
 type Origin struct {
 	Alg       string `json:"alg"`
@@ -122,8 +120,8 @@ type Origin struct {
 
 // Item is one credential inside the bundle, with its key-block attributes:
 // what it may be used for, with which algorithm, whether it may leave the
-// TEE, and whether it is a private key shared by a replicated service's
-// instances.
+// TEE, and whether it is a private key shared by the instances of a
+// replicated service.
 type Item struct {
 	Type       string   `json:"type"`
 	Format     string   `json:"format,omitempty"`
@@ -196,9 +194,9 @@ func InfoBase(target string, freshness []byte) []byte {
 	return lp(nil, []byte(infoLabel), []byte(target), freshness)
 }
 
-// ToBeSigned is what the Vault signs for the origin member: the suite in
-// use names the HPKE suite_id among the signed octets, and the algorithm's
-// name is OriginAlg, the one the member carries.
+// ToBeSigned is what the Secret Vault signs for the origin member: the suite
+// in use names the HPKE suite_id among the signed octets, and the name of the
+// algorithm is OriginAlg, which the member carries.
 func ToBeSigned(s Suite, cekPub, info, aad, enc, ct []byte) []byte {
 	id, _ := SuiteID(s)
 	return lp(nil, []byte(sigLabel), id, []byte(OriginAlg), cekPub, info, aad, enc, ct)
@@ -361,17 +359,17 @@ type Expect struct {
 	CredentialHint string
 	CEK            hpke.PrivateKey
 	// CEKPub is CEKpub as the request carried it, the octets the signature
-	// covers. When nil, the KEM's own encoding of CEK's public key.
+	// covers. When nil, the encoding of the public key of CEK that the KEM defines.
 	CEKPub []byte
-	// VaultKey is the Secret Vault's signature key the Workload holds for the
-	// Target; an origin member the container carries is verified under it.
+	// VaultKey is the signature key of the Secret Vault that the Workload holds
+	// for the Target; an origin member the container carries is verified under it.
 	// RequireOrigin refuses a container without one.
 	VaultKey      *ecdsa.PublicKey
 	RequireOrigin bool
 }
 
 // Open checks the container, the suite, the associated data and, as the
-// Workload's policy says, the origin member, then decrypts.
+// policy of the Workload says, the origin member, then decrypts.
 func Open(b *Bundle, exp Expect) (*Content, error) {
 	if b.Container != ContainerBase {
 		return nil, ErrContainer
@@ -418,7 +416,7 @@ func Open(b *Bundle, exp Expect) (*Content, error) {
 	return &c, nil
 }
 
-// CheckItems is the Workload's policy on what it takes: every item with its
+// CheckItems is the policy of the Workload on what it accepts: every item with its
 // key-block attributes, nothing exportable, a shared private key only if
 // acceptShared, and a validity of at most maxValiditySeconds (0: not
 // checked).
@@ -443,8 +441,8 @@ func CheckItems(c *Content, acceptShared bool, maxValiditySeconds int) error {
 	return nil
 }
 
-// ItemOctets is the credential an item carries: its value is the unpadded
-// base64url of the credential's octets, a DER certificate, a DER
+// ItemOctets is the credential that an item carries: its value is the unpadded
+// base64url of the octets of the credential, a DER certificate, a DER
 // PrivateKeyInfo, the key octets or the UTF-8 of a token.
 func ItemOctets(it Item) ([]byte, error) {
 	return base64.RawURLEncoding.DecodeString(it.Value)

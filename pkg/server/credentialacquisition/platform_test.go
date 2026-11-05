@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// benchRule is the platform rule of the TWI-Unified-Model attestation bench
-// (trust/platform-policy.json with the bench's waiver): Milan, Genoa and
+// recordedRule is the platform rule the Server applied in the recorded runs:
+// Milan, Genoa and
 // Turin with their TCB floors, the mitigation bits AMD names in its bulletins
 // with bit 4 waived for Milan, ALIAS_CHECK_COMPLETE, SMT with the microcode
 // floor, and the TD attributes refused.
-func benchRule() *PlatformRule {
+func recordedRule() *PlatformRule {
 	return &PlatformRule{
 		SEVSNP: &SNPRule{
 			AllowedProducts: []string{"Milan", "Genoa", "Turin"},
@@ -54,7 +54,7 @@ func snpResult(h snpHost) *earResult {
 }
 
 func TestPlatformRuleSEVSNP(t *testing.T) {
-	rule := benchRule()
+	rule := recordedRule()
 
 	t.Run("the Milan host of the records, under the waiver of bit 4", func(t *testing.T) {
 		waived, err := rule.Check(snpResult(gcpMilan()))
@@ -97,7 +97,7 @@ func TestPlatformRuleSEVSNP(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			h := gcpMilan()
 			tt.mutate(&h)
-			r := benchRule()
+			r := recordedRule()
 			if tt.rule != nil {
 				tt.rule(r)
 			}
@@ -126,7 +126,7 @@ func repeatHex(s string, n int) string {
 }
 
 func TestPlatformRuleTDX(t *testing.T) {
-	rule := benchRule()
+	rule := recordedRule()
 	ok := &earResult{Submod: "TDX", TDX: map[string]string{"td_attributes": "0000000010000000"}}
 	_, err := rule.Check(ok)
 	require.NoError(t, err)
@@ -154,13 +154,13 @@ func TestPlatformRuleTDX(t *testing.T) {
 
 func TestPlatformRuleLoadAndValidate(t *testing.T) {
 	dir := t.TempDir()
-	raw, err := json.Marshal(benchRule())
+	raw, err := json.Marshal(recordedRule())
 	require.NoError(t, err)
 	path := filepath.Join(dir, "rule.json")
 	require.NoError(t, os.WriteFile(path, raw, 0o600))
 	rule, err := loadPlatformRule(path)
 	require.NoError(t, err)
-	require.Equal(t, benchRule(), rule)
+	require.Equal(t, recordedRule(), rule)
 
 	for _, tt := range []struct {
 		name   string
@@ -176,7 +176,7 @@ func TestPlatformRuleLoadAndValidate(t *testing.T) {
 		{name: "td mask", mutate: func(r *PlatformRule) { r.TDX.AttributesRefused = "0xzz" }, err: "td_attributes_refused"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			r := benchRule()
+			r := recordedRule()
 			tt.mutate(r)
 			require.ErrorContains(t, r.Validate(), tt.err)
 		})

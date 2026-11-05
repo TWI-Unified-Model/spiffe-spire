@@ -15,14 +15,12 @@ import (
 // ErrPlatform is wrapped by every refusal of the platform rule.
 var ErrPlatform = errors.New("the platform is not one this Server accepts")
 
-// PlatformRule is the Server's rule on what verified, affirming Attestation
-// Results report about the platform: which machine, which product line,
-// which TCB, which guest policy. "Affirming" says the Evidence matched the
-// verifier's reference values; it does not say the platform is one this
-// Server accepts. The rule is read from a JSON file (platform_rule_path) in
-// the format of the TWI-Unified-Model attestation bench, whose Relying
-// Parties apply the same rule; trust/README.md of the bench gives the reason
-// for each value.
+// PlatformRule is the rule of the Server on what verified, affirming
+// Attestation Results report about the platform: which machine, which product
+// line, which TCB, which guest policy. "Affirming" says the Evidence matched
+// the reference values of the Verifier; it does not say the platform is one
+// this Server accepts. The rule is read from a JSON file (platform_rule_path)
+// in the format of the rule in platform_test.go.
 type PlatformRule struct {
 	SEVSNP *SNPRule `json:"sevsnp,omitempty"`
 	TDX    *TDXRule `json:"tdx,omitempty"`
@@ -30,24 +28,24 @@ type PlatformRule struct {
 
 // SNPRule is the rule for SEV-SNP.
 type SNPRule struct {
-	// A machine must be named: a VLEK-signed report (the provider's key) or
+	// A machine must be named: a VLEK-signed report (the key of the cloud provider) or
 	// one without CHIP_ID is refused.
 	RequireMachineIdentity bool `json:"require_machine_identity"`
 	// The machines admitted, by CHIP_ID (hex); empty admits any named machine.
 	AllowedChipIDs []string `json:"allowed_chip_ids,omitempty"`
-	// The product lines admitted, named from the report's CPUID family and
-	// extended model (AMD 57230 Rev. 1.05, Table 4).
+	// The product lines admitted, named from the CPUID family and extended
+	// model of the report (AMD 57230 Rev. 1.05, Table 4).
 	AllowedProducts []string `json:"allowed_products"`
 	// The minimum of each TCB component, per product line; a product line
 	// without a floor is refused.
 	TCBFloors map[string]map[string]int `json:"tcb_floors"`
 	// Apply the floors to COMMITTED_TCB as well as REPORTED_TCB.
 	CheckCommittedTCB bool `json:"check_committed_tcb"`
-	// "forbid", or "allow-with-microcode-floor": SMT only when the product's
-	// floor names a microcode level, met.
+	// "forbid", or "allow-with-microcode-floor": SMT only when the floor of the
+	// product line names a microcode level, met.
 	SMT string `json:"smt"`
 	// Per product line, the mitigation bits that must be set in both
-	// mitigation vectors, the one verified at the guest's launch and the one
+	// mitigation vectors, the one verified at the launch of the guest and the one
 	// verified now (report version 5), each with the reason the refusal
 	// gives, e.g. {"Milan": {"4": "AMD-SB-3034"}}.
 	RequiredMitigationBits map[string]map[string]string `json:"required_mitigation_bits,omitempty"`
@@ -61,7 +59,7 @@ type SNPRule struct {
 	RequiredPlatformInfoBits map[string]map[string]string `json:"required_platform_info_bits,omitempty"`
 }
 
-// TDXRule is the rule for TDX, on the TD ATTRIBUTES the TDX verifier
+// TDXRule is the rule for TDX, on the TD ATTRIBUTES the TDX Verifier
 // annotates.
 type TDXRule struct {
 	// ATTRIBUTES bits refused besides the TUD group (bits 3:0), which is
@@ -297,7 +295,7 @@ func (s *SNPRule) check(c *snpClaims) (waived []string, err error) {
 func (t *TDXRule) check(ann map[string]string) error {
 	raw, ok := ann["td_attributes"]
 	if !ok {
-		return fmt.Errorf("%w: the TDX verifier annotated no TD ATTRIBUTES", ErrPlatform)
+		return fmt.Errorf("%w: the TDX Verifier annotated no TD ATTRIBUTES", ErrPlatform)
 	}
 	attrs, err := strconv.ParseUint(raw, 16, 64)
 	if err != nil {

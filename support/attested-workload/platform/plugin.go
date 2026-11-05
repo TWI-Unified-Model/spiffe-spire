@@ -34,7 +34,7 @@ type Plugin interface {
 	GenerateEvidence(req EvidenceRequest) (*Evidence, error)
 
 	// LocalEpoch is an epoch identifier already held by the Attester.
-	// Used when freshness kind is absent-epoch. Empty if the platform
+	// Used when Freshness Kind is absent-epoch. Empty if the platform
 	// does not keep an epoch.
 	LocalEpoch() []byte
 
@@ -53,7 +53,7 @@ type KeyPair struct {
 }
 
 // Public returns the public half of the key pair: an hpke.PublicKey for an
-// MLKEM768-P256 CEK, else the crypto.Signer's public key.
+// MLKEM768-P256 CEK, else the public key of the crypto.Signer.
 func (k *KeyPair) Public() crypto.PublicKey {
 	if k != nil {
 		if h, ok := k.Private.(hpke.PrivateKey); ok {
@@ -166,7 +166,7 @@ type EvidenceRequest struct {
 	FreshnessKind FreshnessKind
 
 	// FreshnessHandle is the nonce or epoch marker the binding covers.
-	// Empty for absent-* freshness kinds (no Handle from
+	// Empty for absent-* Freshness Kinds (no Handle from
 	// Initiate-Credential-Acquisition). 8 to 64 octets when present, the
 	// bounds RFC 9711 sets for eat_nonce.
 	FreshnessHandle []byte
@@ -183,18 +183,17 @@ type EvidenceRequest struct {
 	BoundKeyUse BoundKeyUse
 
 	// Target is the Target of Initiate-Credential-Acquisition. The
-	// back-ends bind it into Evidence (the binding input of the EST profile,
-	// draft-novak-lamps-tacra-est).
+	// back-ends bind it into Evidence (the binding input of TACRA).
 	Target string
 }
 
 // Evidence is RATS Evidence ready to send over CAAPI.
 type Evidence struct {
-	// Token is the Evidence: the configfs-tsm report with the host's
-	// certificates, CBOR-encoded (TSMReportMediaTypeCBOR).
+	// Token is the Evidence: the configfs-tsm report with the certificates of
+	// the host, CBOR-encoded (TSMReportMediaTypeCBOR).
 	Token []byte
 
-	// MediaType is the type a verifier dispatches the token on.
+	// MediaType is the type a Verifier dispatches the token on.
 	MediaType string
 
 	// Claims is a CBOR map, unsigned, of what the Relying Party needs to
@@ -203,7 +202,7 @@ type Evidence struct {
 }
 
 var (
-	ErrInvalidFreshnessHandle         = errors.New("platform: freshness handle must be 8-64 bytes")
+	ErrInvalidFreshnessHandle         = errors.New("platform: Freshness Handle must be 8-64 bytes")
 	ErrMissingBoundKey                = errors.New("platform: bound public key is required")
 	ErrUnsupportedKey                 = errors.New("platform: bound key must be P-256 ECDSA or RSA-2048")
 	ErrUnsupportedSigningAlgorithm    = errors.New("platform: unsupported signing algorithm")

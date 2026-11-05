@@ -33,8 +33,8 @@ func (h *Handler) InitiateCredentialAcquisition(ctx context.Context, req *worklo
 	start := time.Now()
 	log := rpccontext.Logger(ctx)
 	if req.Target == "" {
-		log.Error("Missing required target parameter")
-		return nil, status.Error(codes.InvalidArgument, "target must be specified")
+		log.Error("Missing required Target parameter")
+		return nil, status.Error(codes.InvalidArgument, "Target must be specified")
 	}
 
 	entry, _, err := h.credentialAcquisitionEntry(ctx, log, start, MethodInitiateCredentialAcquisition, req.CredentialHint)
@@ -71,14 +71,14 @@ func (h *Handler) EnrollCredential(ctx context.Context, req *workload.EnrollCred
 	log := rpccontext.Logger(ctx)
 	switch {
 	case req.Target == "":
-		log.Error("Missing required target parameter")
-		return nil, status.Error(codes.InvalidArgument, "target must be specified")
+		log.Error("Missing required Target parameter")
+		return nil, status.Error(codes.InvalidArgument, "Target must be specified")
 	case len(req.Csr) == 0:
 		log.Error("Missing required csr parameter")
 		return nil, status.Error(codes.InvalidArgument, "csr must be specified")
 	case len(req.Evidence) == 0:
-		log.Error("Missing required evidence parameter")
-		return nil, status.Error(codes.InvalidArgument, "evidence must be specified")
+		log.Error("Missing required Evidence parameter")
+		return nil, status.Error(codes.InvalidArgument, "Evidence must be specified")
 	case req.Binding == nil:
 		log.Error("Missing required binding parameter")
 		return nil, status.Error(codes.InvalidArgument, "binding must be specified")
@@ -143,14 +143,14 @@ func (h *Handler) RetrieveCredential(ctx context.Context, req *workload.Retrieve
 	log := rpccontext.Logger(ctx)
 	switch {
 	case req.Target == "":
-		log.Error("Missing required target parameter")
-		return nil, status.Error(codes.InvalidArgument, "target must be specified")
+		log.Error("Missing required Target parameter")
+		return nil, status.Error(codes.InvalidArgument, "Target must be specified")
 	case len(req.CekPub) == 0:
 		log.Error("Missing required cek_pub parameter")
 		return nil, status.Error(codes.InvalidArgument, "cek_pub must be specified")
 	case len(req.Evidence) == 0:
-		log.Error("Missing required evidence parameter")
-		return nil, status.Error(codes.InvalidArgument, "evidence must be specified")
+		log.Error("Missing required Evidence parameter")
+		return nil, status.Error(codes.InvalidArgument, "Evidence must be specified")
 	case req.Binding == nil:
 		log.Error("Missing required binding parameter")
 		return nil, status.Error(codes.InvalidArgument, "binding must be specified")
@@ -224,7 +224,7 @@ func (h *Handler) credentialAcquisitionEntry(ctx context.Context, log logrus.Fie
 }
 
 // credentialAcquisitionError logs a refused or failed call and returns the
-// status the Workload sees: the Server's own code when it refuses the call
+// status the Workload sees: the code the Server gives when it refuses the call
 // for a reason the Workload can act on (TACRA names those reasons) or fails
 // inside, Unavailable when the Server could not be reached or answered with
 // a code of its own transport.

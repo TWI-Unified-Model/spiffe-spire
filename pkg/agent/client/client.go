@@ -123,7 +123,7 @@ type Client interface {
 	// InitiateCredentialAcquisition, EnrollCredential and RetrieveCredential
 	// forward the attested credential acquisition calls of the Workload API
 	// (TACRA) to the Server, for the registration entry the request names.
-	// The error of a refused call carries the Server's gRPC status.
+	// The error of a refused call carries the gRPC status of the Server.
 	InitiateCredentialAcquisition(ctx context.Context, req *credentialacquisitionv1.InitiateCredentialAcquisitionRequest) (*credentialacquisitionv1.InitiateCredentialAcquisitionResponse, error)
 	EnrollCredential(ctx context.Context, req *credentialacquisitionv1.EnrollCredentialRequest) (*credentialacquisitionv1.EnrollCredentialResponse, error)
 	RetrieveCredential(ctx context.Context, req *credentialacquisitionv1.RetrieveCredentialRequest) (*credentialacquisitionv1.RetrieveCredentialResponse, error)

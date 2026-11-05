@@ -74,15 +74,15 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 		expectLogs     []spiretest.LogEntry
 	}{
 		{
-			name:       "missing required target",
+			name:       "missing required Target",
 			identities: identities,
 			req:        &workloadPB.InitiateCredentialAcquisitionRequest{},
 			expectCode: codes.InvalidArgument,
-			expectMsg:  "target must be specified",
+			expectMsg:  "Target must be specified",
 			expectLogs: []spiretest.LogEntry{
 				{
 					Level:   logrus.ErrorLevel,
-					Message: "Missing required target parameter",
+					Message: "Missing required Target parameter",
 					Data: logrus.Fields{
 						"service": "WorkloadAPI",
 						"method":  "InitiateCredentialAcquisition",
@@ -127,7 +127,7 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 			},
 		},
 		{
-			name:          "a credential hint no entry carries goes on with the default identity",
+			name:          "a Credential Hint that no entry carries goes on with the default identity",
 			identities:    identities,
 			req:           &workloadPB.InitiateCredentialAcquisitionRequest{Target: td.IDString(), CredentialHint: "payments.workload.example"},
 			expectResp:    workloadResp,
@@ -141,9 +141,9 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 			name:       "Server refuses the call",
 			identities: identities,
 			req:        &workloadPB.InitiateCredentialAcquisitionRequest{Target: "https://other.example"},
-			managerErr: status.Error(codes.PermissionDenied, "unsupported target"),
+			managerErr: status.Error(codes.PermissionDenied, "unsupported Target"),
 			expectCode: codes.PermissionDenied,
-			expectMsg:  "unsupported target",
+			expectMsg:  "unsupported Target",
 			expectLogs: []spiretest.LogEntry{
 				{
 					Level:   logrus.ErrorLevel,
@@ -153,7 +153,7 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 						"method":        "InitiateCredentialAcquisition",
 						"spiffe_id":     "spiffe://domain.test/internal",
 						"entry_id":      "id-internal",
-						logrus.ErrorKey: "rpc error: code = PermissionDenied desc = unsupported target",
+						logrus.ErrorKey: "rpc error: code = PermissionDenied desc = unsupported Target",
 					},
 				},
 			},
@@ -162,9 +162,9 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 			name:       "Server refuses the call, wrapped by the client",
 			identities: identities,
 			req:        &workloadPB.InitiateCredentialAcquisitionRequest{Target: "https://other.example"},
-			managerErr: fmt.Errorf("failed to initiate credential acquisition: %w", status.Error(codes.PermissionDenied, "unsupported target")),
+			managerErr: fmt.Errorf("failed to initiate credential acquisition: %w", status.Error(codes.PermissionDenied, "unsupported Target")),
 			expectCode: codes.PermissionDenied,
-			expectMsg:  "unsupported target",
+			expectMsg:  "unsupported Target",
 			expectLogs: []spiretest.LogEntry{
 				{
 					Level:   logrus.ErrorLevel,
@@ -174,7 +174,7 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 						"method":        "InitiateCredentialAcquisition",
 						"spiffe_id":     "spiffe://domain.test/internal",
 						"entry_id":      "id-internal",
-						logrus.ErrorKey: "failed to initiate credential acquisition: rpc error: code = PermissionDenied desc = unsupported target",
+						logrus.ErrorKey: "failed to initiate credential acquisition: rpc error: code = PermissionDenied desc = unsupported Target",
 					},
 				},
 			},
@@ -212,7 +212,7 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 			},
 		},
 		{
-			name:          "success with the identity of the credential hint",
+			name:          "success with the identity of the Credential Hint",
 			identities:    identities,
 			req:           &workloadPB.InitiateCredentialAcquisitionRequest{Target: td.IDString(), CredentialHint: "external"},
 			expectResp:    workloadResp,
@@ -303,15 +303,15 @@ func TestEnrollCredential(t *testing.T) {
 			},
 		},
 		{
-			name:       "missing required evidence",
+			name:       "missing required Evidence",
 			identities: identities,
 			req:        &workloadPB.EnrollCredentialRequest{Target: td.IDString(), Csr: []byte("csr"), Binding: testBinding},
 			expectCode: codes.InvalidArgument,
-			expectMsg:  "evidence must be specified",
+			expectMsg:  "Evidence must be specified",
 			expectLogs: []spiretest.LogEntry{
 				{
 					Level:   logrus.ErrorLevel,
-					Message: "Missing required evidence parameter",
+					Message: "Missing required Evidence parameter",
 					Data:    logrus.Fields{"service": "WorkloadAPI", "method": "EnrollCredential"},
 				},
 			},
@@ -491,12 +491,12 @@ func TestRetrieveCredential(t *testing.T) {
 			},
 		},
 		{
-			name:       "Server refuses the credential type",
+			name:       "Server refuses the Credential Type",
 			identities: identities,
 			req:        fullReq,
-			managerErr: status.Error(codes.Unimplemented, "unsupported credential type"),
+			managerErr: status.Error(codes.Unimplemented, "unsupported Credential Type"),
 			expectCode: codes.Unimplemented,
-			expectMsg:  "unsupported credential type",
+			expectMsg:  "unsupported Credential Type",
 			expectLogs: []spiretest.LogEntry{
 				{
 					Level:   logrus.ErrorLevel,
@@ -506,7 +506,7 @@ func TestRetrieveCredential(t *testing.T) {
 						"method":        "RetrieveCredential",
 						"spiffe_id":     "spiffe://domain.test/internal",
 						"entry_id":      "id-internal",
-						logrus.ErrorKey: "rpc error: code = Unimplemented desc = unsupported credential type",
+						logrus.ErrorKey: "rpc error: code = Unimplemented desc = unsupported Credential Type",
 					},
 				},
 			},

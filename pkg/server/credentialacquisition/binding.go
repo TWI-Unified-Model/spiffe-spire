@@ -6,10 +6,10 @@ import (
 	"encoding/hex"
 )
 
-// The binding of TACRA (Binding Credential Keys to Evidence) in the TACRA EST
-// profile, which the Workload API carries unchanged: the Evidence's freshness
-// input holds SHA-512 of the binding input, and the binding object names the
-// method and the hash.
+// The binding of TACRA (Binding Credential Keys to Evidence), which the
+// Workload API carries unchanged: the freshness input of the Evidence holds
+// SHA-512 of the binding input, and the binding object names the method and
+// the hash.
 const (
 	BindingMethod = "binding-input"
 	BindingHash   = "sha512"

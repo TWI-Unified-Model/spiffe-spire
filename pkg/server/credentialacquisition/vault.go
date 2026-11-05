@@ -14,23 +14,23 @@ import (
 )
 
 // ErrVaultUnavailable is the Secret Vault not answering.
-var ErrVaultUnavailable = errors.New("secret vault unavailable")
+var ErrVaultUnavailable = errors.New("the Secret Vault is unavailable")
 
-// vaultRefusal is a refusal of the Secret Vault: its HTTP status and its
-// error code and detail, as the TACRA EST profile's RATS Relying Party
-// answers them.
+// vaultRefusal is a refusal of the Secret Vault: its HTTP status and the
+// error code and detail it answers with.
 type vaultRefusal struct {
 	Status int
 	Code   string
 	Detail string
 }
 
-func (e *vaultRefusal) Error() string { return fmt.Sprintf("secret vault: %s: %s", e.Code, e.Detail) }
+func (e *vaultRefusal) Error() string { return fmt.Sprintf("Secret Vault: %s: %s", e.Code, e.Detail) }
 
 // vaultClient is the conduit to the Secret Vault of the Targets in retrieve
-// mode: the vault is the RATS Relying Party that originates the Freshness
-// Handle, appraises the Evidence and releases the credential, sealed to the
-// Workload's Credential Encryption Key. The Server forwards the two legs.
+// mode: the Secret Vault is the RATS Relying Party that originates the
+// Freshness Handle, appraises the Evidence and releases the credential, sealed
+// to the Credential Encryption Key of the Workload. The Server forwards the
+// two legs.
 type vaultClient struct {
 	url    string
 	client *http.Client
@@ -54,9 +54,8 @@ func newVaultClient(c *Config) (*vaultClient, error) {
 	}, nil
 }
 
-// vaultInitiation is what the vault answers at initiation: the fields of
-// the AttestationInitiationResponse of the TACRA EST profile, a byte string
-// as unpadded base64url.
+// vaultInitiation is what the Secret Vault answers at initiation, a byte
+// string as unpadded base64url.
 type vaultInitiation struct {
 	FreshnessKind string   `json:"freshness_kind"`
 	Handle        string   `json:"handle,omitempty"`
@@ -68,15 +67,15 @@ type vaultInitiation struct {
 }
 
 // vaultRetrieval is the attest-retrieve request as the conduit forwards it
-// to the vault: the second leg, the Evidence and CEKpub.
+// to the Secret Vault: the second leg, the Evidence and CEKpub.
 type vaultRetrieval struct {
 	FreshnessKind  string `json:"freshness_kind"`
 	Target         string `json:"target"`
 	CredentialType string `json:"credential_type,omitempty"`
 	Handle         string `json:"handle,omitempty"`
 	CredentialHint string `json:"credential_hint,omitempty"`
-	Evidence       string `json:"evidence,omitempty"` // Background Check: the Attester's Evidence, as it sent it
-	Profile        string `json:"profile,omitempty"`  // Background Check: the Evidence's media type
+	Evidence       string `json:"evidence,omitempty"` // Background Check: the Evidence of the Attester, as it sent it
+	Profile        string `json:"profile,omitempty"`  // Background Check: the media type of the Evidence
 	EAR            string `json:"ear,omitempty"`      // Passport: the Attestation Results the Server obtained
 	CEKPub         string `json:"cek_pub"`
 }

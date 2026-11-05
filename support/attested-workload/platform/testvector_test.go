@@ -6,7 +6,7 @@ import (
 )
 
 // The hardware vector of the binding of TACRA, three fields (the freshness element, the Target, the subject): the
-// present-nonce Enrollment of the test bench's SEV-SNP run 20261011T151929Z on Google Cloud, whose REPORT_DATA equals
+// present-nonce Enrollment of a SEV-SNP run on Google Cloud (20261011T151929Z), whose REPORT_DATA equals
 // SHA-512(binding_input).
 const (
 	tv3HandleHex     = "a8dd37281155a104a3565cc7ce2057d508dd978c00b2f1fa1e2591da88d508b3"
@@ -20,7 +20,7 @@ func TestBindingValueMatchesHardwareVector(t *testing.T) {
 	subject, _ := hex.DecodeString(tv3SubjectHex)
 	bv := BindingValue(handle, tv3Target, subject)
 	if got := hex.EncodeToString(bv[:]); got != tv3ReportDataHex {
-		t.Fatalf("binding value %s, want the report's REPORT_DATA %s", got, tv3ReportDataHex)
+		t.Fatalf("binding value %s, want REPORT_DATA of the report %s", got, tv3ReportDataHex)
 	}
 	if n := len(BindingInput(handle, tv3Target, subject)); n != 4+32+4+len(tv3Target)+4+len(subject) {
 		t.Fatalf("binding input is %d octets", n)

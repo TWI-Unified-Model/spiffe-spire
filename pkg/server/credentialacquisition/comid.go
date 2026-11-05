@@ -11,8 +11,8 @@ import (
 	"github.com/fxamacker/cbor/v2"
 )
 
-// A Veraison verifier annotates, for an SEV-SNP report, a CoMID (CoRIM,
-// draft-ietf-rats-corim) with the report's fields as the measurements of one
+// A Veraison Verifier annotates, for an SEV-SNP report, a CoMID (CoRIM,
+// draft-ietf-rats-corim) with the fields of the report as the measurements of one
 // reference-value triple. The measurement keys of the AMD SEV-SNP CoRIM
 // profile this Server reads, as go-gen-ref writes them.
 const (
@@ -38,7 +38,7 @@ const (
 	tagRawValue = 560 // tagged-bytes, a raw value
 )
 
-// The environment class of the CoMID a Veraison verifier annotates for an
+// The environment class of the CoMID a Veraison Verifier annotates for an
 // SEV-SNP report: the chip for a VCEK-signed report, the cloud provider for a
 // VLEK-signed one.
 const (
@@ -46,7 +46,7 @@ const (
 	classByCSP  = "1.3.6.1.4.1.3704.3.2"
 )
 
-// snpClaims are the fields of an SEV-SNP report a Veraison verifier
+// snpClaims are the fields of an SEV-SNP report a Veraison Verifier
 // annotates in its Attestation Results, read from the annotated CoMID.
 type snpClaims struct {
 	class            string
@@ -66,8 +66,8 @@ type snpClaims struct {
 }
 
 // parseSNPClaims reads the annotated CoMID: in the annotated evidence,
-// tags[0] is base64 of the CoMID, CBOR tag 506 around the CoMID map. The
-// map's triples (key 4) hold the reference-values (key 0), each a pair of an
+// tags[0] is base64 of the CoMID, CBOR tag 506 around the CoMID map. Its
+// triples (key 4) hold the reference-values (key 0), each a pair of an
 // environment and the measurements; a measurement is a map of mkey (key 0)
 // and mval (key 1), whose svn is at key 1, digests at key 2 and raw value at
 // key 4.

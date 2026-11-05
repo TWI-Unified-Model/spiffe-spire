@@ -83,12 +83,11 @@ func (s *sessions) remember(handle []byte, ss session) {
 }
 
 // take correlates the second call with the initiation that returned its
-// Handle, as the TACRA EST profile says: the call must repeat the Target and
-// the Freshness Kind of its initiation, and a Credential Type or Credential
-// Hint the initiation named, while one it omitted may be named. This Server
-// adds the Workload's registration entry and its Agent: the exchange belongs
-// to the Workload the Agent attested at initiation. A present-nonce Handle
-// is taken once.
+// Handle: the call must repeat the Target and the Freshness Kind of its
+// initiation, and a Credential Type or Credential Hint the initiation named,
+// while one it omitted may be named. This Server adds the registration entry
+// of the Workload and its Agent: the exchange belongs to the Workload the
+// Agent attested at initiation. A present-nonce Handle is taken once.
 func (s *sessions) take(handle []byte, kind, target, credentialType, hint, entryID, agentID string) (session, error) {
 	key := hex.EncodeToString(handle)
 	s.mu.Lock()

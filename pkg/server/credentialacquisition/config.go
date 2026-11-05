@@ -1,11 +1,11 @@
 // Package credentialacquisition implements the Credential Acquisition System
 // Server of draft-novak-rats-tacra (TACRA) in SPIRE Server, behind the
 // CredentialAcquisition Server API: for a Workload an Agent attested, it
-// issues the Freshness Handle, sends the Workload's Evidence to a RATS
+// issues the Freshness Handle, sends the Evidence of the Workload to a RATS
 // Verifier, verifies the Attestation Results and the binding of the
 // credential key to the Evidence, and, as the Credential Authority, lets the
-// Server's CA mint an X509-SVID for the key, or, as the conduit to a Secret
-// Vault, returns the credential the vault released sealed to the key.
+// CA of the Server mint an X509-SVID for the key, or, as the conduit to a Secret
+// Vault, returns the credential the Secret Vault released, sealed to the key.
 package credentialacquisition
 
 import (
@@ -22,15 +22,15 @@ const (
 )
 
 // The RATS models a Target in retrieve mode is served in: in Passport the
-// Server, as the conduit, obtains the Attestation Results from the Target's
-// verifier and forwards them to the Secret Vault; in Background Check it
-// forwards the Evidence, and the vault asks the verifier itself.
+// Server, as the conduit, obtains the Attestation Results from the Verifier
+// of the Target and forwards them to the Secret Vault; in Background Check it
+// forwards the Evidence, and the Secret Vault asks the Verifier itself.
 const (
 	ModelPassport        = "passport"
 	ModelBackgroundCheck = "background-check"
 )
 
-// The Freshness Kinds of TACRA, as the TACRA EST profile names them.
+// The Freshness Kinds of TACRA.
 const (
 	FreshnessPresentNonce    = "present-nonce"
 	FreshnessPresentEpoch    = "present-epoch"
@@ -45,19 +45,19 @@ var credentialTypes = []string{"x509", "wic", "wit", "jwt", "api-key", "psk", "p
 // The Credential Types Enrollment mints.
 var enrollableCredentialTypes = []string{"x509", "wic"}
 
-// The CSK algorithm tokens of the TACRA EST profile this Server accepts.
+// The CSK algorithms this Server accepts, by the names acceptable_csk carries.
 var supportedCSKAlgorithms = []string{"ecdsa-p256-sha256"}
 
-// Config is the credential_acquisition block of the Server's experimental
-// configuration.
+// Config is the credential_acquisition block of the experimental
+// configuration of the Server.
 type Config struct {
 	// Target, by Target name, is the policy for each Target this Server
 	// serves: the octet string the Workload names in its calls.
 	Target map[string]*TargetConfig `hcl:"target"`
 
 	// Verifier, by name, is a RATS Verifier this Server sends Evidence to
-	// and whose Attestation Results it accepts. A Target's policy names the
-	// verifiers it takes.
+	// and whose Attestation Results it accepts. The policy of a Target names the
+	// Verifiers it uses.
 	Verifier map[string]*VerifierConfig `hcl:"verifier"`
 
 	// AcceptableEvidence is the list of Evidence formats this Server
@@ -73,7 +73,7 @@ type Config struct {
 	EARSkew string `hcl:"ear_skew"`
 
 	// ClientCertPath and ClientKeyPath hold the certificate and key this
-	// Server presents to the verifiers and the Secret Vault over mutual TLS.
+	// Server presents to the Verifiers and the Secret Vault over mutual TLS.
 	ClientCertPath string `hcl:"client_cert_path"`
 	ClientKeyPath  string `hcl:"client_key_path"`
 
@@ -83,8 +83,8 @@ type Config struct {
 	// PlatformRulePath is the file holding the platform rule applied to
 	// affirming Attestation Results of every Target: the machine, the product
 	// line, the TCB floors, the mitigations and the guest policy for SEV-SNP,
-	// the TD attributes for TDX. Without it, only the guest policy's debug and
-	// migration bits are refused.
+	// the TD attributes for TDX. Without it, only the debug and migration bits of
+	// the guest policy are refused.
 	PlatformRulePath string `hcl:"platform_rule_path"`
 }
 
@@ -97,7 +97,7 @@ type TargetConfig struct {
 	// Enrollment serves x509 and wic.
 	CredentialTypes []string `hcl:"credential_types"`
 
-	// FreshnessKind is the Freshness Kind of the Target's exchanges. This
+	// FreshnessKind is the Freshness Kind of the exchanges of the Target. This
 	// Server issues present-nonce Handles; a Target in retrieve mode takes
 	// the kind its Secret Vault answers.
 	FreshnessKind string `hcl:"freshness_kind"`
@@ -106,13 +106,13 @@ type TargetConfig struct {
 	// 1m as TACRA recommends).
 	ExpiresIn string `hcl:"expires_in"`
 
-	// Verifiers names the verifiers whose Attestation Results the policy
+	// Verifiers names the Verifiers whose Attestation Results the policy
 	// takes for this Target, among those configured. In retrieve mode, the
-	// verifiers the Server asks when the RATS model is passport.
+	// Verifiers the Server asks when the RATS model is passport.
 	Verifiers []string `hcl:"verifiers"`
 
 	// RATSModel is, for a Target in retrieve mode, passport or
-	// background-check (the default): who asks the verifier, this Server or
+	// background-check (the default): who asks the Verifier, this Server or
 	// the Secret Vault.
 	RATSModel string `hcl:"rats_model"`
 
@@ -131,38 +131,38 @@ type TargetConfig struct {
 
 // VerifierConfig is one RATS Verifier.
 type VerifierConfig struct {
-	// URL is the base URL of the verifier's challenge-response API.
+	// URL is the base URL of the challenge-response API of the Verifier.
 	URL string `hcl:"url"`
 
-	// CAPath is the file holding the CA certificate of the verifier's TLS
-	// certificate.
+	// CAPath is the file holding the CA certificate of the TLS certificate of
+	// the Verifier.
 	CAPath string `hcl:"ca_path"`
 
-	// EARKeyPath is the file holding the public key the verifier signs its
+	// EARKeyPath is the file holding the public key the Verifier signs its
 	// Attestation Results with: an EC P-256 public JWK, or a PEM public key.
 	// It is provisioned, never fetched.
 	EARKeyPath string `hcl:"ear_key_path"`
 
-	// Provider is the TSM report provider of the Evidence this verifier
+	// Provider is the TSM report provider of the Evidence this Verifier
 	// appraises: sev_guest or tdx_guest.
 	Provider string `hcl:"provider"`
 
-	// Submods names the EAR submodules the verifier's key speaks for, for
+	// Submods names the EAR submodules the key of the Verifier speaks for, for
 	// example SEVSNP.
 	Submods []string `hcl:"submods"`
 }
 
 // SecretVaultConfig is the Secret Vault of the Targets in retrieve mode.
 type SecretVaultConfig struct {
-	// URL is the base URL of the vault's TACRA API.
+	// URL is the base URL of the TACRA API of the Secret Vault.
 	URL string `hcl:"url"`
 
-	// CAPath is the file holding the CA certificate of the vault's TLS
-	// certificate.
+	// CAPath is the file holding the CA certificate of the TLS certificate of
+	// the Secret Vault.
 	CAPath string `hcl:"ca_path"`
 
 	// ClientCertPath and ClientKeyPath, when set, are the certificate and key
-	// this Server presents to the vault instead of the ones it presents to
+	// this Server presents to the Secret Vault instead of the ones it presents to
 	// the verifiers.
 	ClientCertPath string `hcl:"client_cert_path"`
 	ClientKeyPath  string `hcl:"client_key_path"`
@@ -185,7 +185,7 @@ type Policy struct {
 // Validate checks the configuration and returns the parsed policies.
 func (c *Config) Validate() (map[string]*Policy, error) {
 	if len(c.Target) == 0 {
-		return nil, errors.New("credential_acquisition: at least one target is required")
+		return nil, errors.New("credential_acquisition: at least one Target is required")
 	}
 	if len(c.AcceptableEvidence) == 0 {
 		return nil, errors.New("credential_acquisition: acceptable_evidence is required")
@@ -193,15 +193,15 @@ func (c *Config) Validate() (map[string]*Policy, error) {
 	for name, v := range c.Verifier {
 		switch {
 		case v == nil:
-			return nil, fmt.Errorf("credential_acquisition: verifier %q is empty", name)
+			return nil, fmt.Errorf("credential_acquisition: Verifier %q is empty", name)
 		case v.URL == "":
-			return nil, fmt.Errorf("credential_acquisition: verifier %q: url is required", name)
+			return nil, fmt.Errorf("credential_acquisition: Verifier %q: url is required", name)
 		case v.EARKeyPath == "":
-			return nil, fmt.Errorf("credential_acquisition: verifier %q: ear_key_path is required", name)
+			return nil, fmt.Errorf("credential_acquisition: Verifier %q: ear_key_path is required", name)
 		case v.Provider == "":
-			return nil, fmt.Errorf("credential_acquisition: verifier %q: provider is required", name)
+			return nil, fmt.Errorf("credential_acquisition: Verifier %q: provider is required", name)
 		case len(v.Submods) == 0:
-			return nil, fmt.Errorf("credential_acquisition: verifier %q: submods is required", name)
+			return nil, fmt.Errorf("credential_acquisition: Verifier %q: submods is required", name)
 		}
 	}
 	if _, err := parseDuration(c.EARMaxAge, 2*time.Minute); err != nil {
@@ -227,7 +227,7 @@ func (c *Config) Validate() (map[string]*Policy, error) {
 
 func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 	fail := func(format string, args ...any) (*Policy, error) {
-		return nil, fmt.Errorf("credential_acquisition: target %q: "+format, append([]any{name}, args...)...)
+		return nil, fmt.Errorf("credential_acquisition: Target %q: "+format, append([]any{name}, args...)...)
 	}
 	if t == nil {
 		return fail("is empty")
@@ -251,7 +251,7 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 		}
 		for _, ct := range p.CredentialTypes {
 			if !slices.Contains(enrollableCredentialTypes, ct) {
-				return fail("credential type %q cannot be enrolled; enrollment mints %v", ct, enrollableCredentialTypes)
+				return fail("Credential Type %q cannot be enrolled; enrollment mints %v", ct, enrollableCredentialTypes)
 			}
 		}
 		if p.FreshnessKind == "" {
@@ -269,11 +269,11 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 			}
 		}
 		if len(p.Verifiers) == 0 {
-			return fail("verifiers is required: the Attestation Results of no verifier are taken otherwise")
+			return fail("verifiers is required: without it the Attestation Results of no Verifier are taken")
 		}
 		for _, v := range p.Verifiers {
 			if _, ok := c.Verifier[v]; !ok {
-				return fail("verifier %q is not configured", v)
+				return fail("Verifier %q is not configured", v)
 			}
 		}
 		for _, m := range t.Measurements {
@@ -300,7 +300,7 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 			}
 			for _, v := range p.Verifiers {
 				if _, ok := c.Verifier[v]; !ok {
-					return fail("verifier %q is not configured", v)
+					return fail("Verifier %q is not configured", v)
 				}
 			}
 		default:
@@ -308,7 +308,7 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 		}
 		for _, ct := range p.CredentialTypes {
 			if !slices.Contains(credentialTypes, ct) {
-				return fail("credential type %q is not one the profile defines", ct)
+				return fail("Credential Type %q is not one of TACRA", ct)
 			}
 		}
 		if p.FreshnessKind != "" && p.FreshnessKind != FreshnessPresentNonce {

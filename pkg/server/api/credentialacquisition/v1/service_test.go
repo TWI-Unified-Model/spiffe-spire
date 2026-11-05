@@ -39,7 +39,7 @@ var (
 	binding    = &types.EvidenceBinding{Method: "binding-input", Hash: "sha512"}
 )
 
-type fakeAcquirer struct {
+type mockAcquirer struct {
 	initiateResult *acquisition.InitiationResult
 	enrollResult   *acquisition.EnrollmentResult
 	container      []byte
@@ -49,17 +49,17 @@ type fakeAcquirer struct {
 	lastRetrieval  *acquisition.Retrieval
 }
 
-func (f *fakeAcquirer) Initiate(_ context.Context, in acquisition.Initiation) (*acquisition.InitiationResult, error) {
+func (f *mockAcquirer) Initiate(_ context.Context, in acquisition.Initiation) (*acquisition.InitiationResult, error) {
 	f.lastInitiation = &in
 	return f.initiateResult, f.err
 }
 
-func (f *fakeAcquirer) Enroll(_ context.Context, in acquisition.Enrollment) (*acquisition.EnrollmentResult, error) {
+func (f *mockAcquirer) Enroll(_ context.Context, in acquisition.Enrollment) (*acquisition.EnrollmentResult, error) {
 	f.lastEnrollment = &in
 	return f.enrollResult, f.err
 }
 
-func (f *fakeAcquirer) Retrieve(_ context.Context, in acquisition.Retrieval) ([]byte, error) {
+func (f *mockAcquirer) Retrieve(_ context.Context, in acquisition.Retrieval) ([]byte, error) {
 	f.lastRetrieval = &in
 	return f.container, f.err
 }
@@ -98,7 +98,7 @@ func (f *entryFetcher) FetchAuthorizedEntries(ctx context.Context, id spiffeid.I
 type serviceTest struct {
 	ca           *fakeserverca.CA
 	ef           *entryFetcher
-	acquirer     *fakeAcquirer
+	acquirer     *mockAcquirer
 	logHook      *test.Hook
 	client       credentialacquisitionv1.CredentialAcquisitionClient
 	withCallerID bool
@@ -114,7 +114,7 @@ func setupServiceTest(t *testing.T) *serviceTest {
 		X509SvidTtl: 600,
 		Hint:        "internal",
 	}}}
-	acquirer := &fakeAcquirer{}
+	acquirer := &mockAcquirer{}
 	service := credentialacquisition.New(credentialacquisition.Config{
 		Acquirer:     acquirer,
 		EntryFetcher: ef,
@@ -126,7 +126,7 @@ func setupServiceTest(t *testing.T) *serviceTest {
 	st := &serviceTest{ca: ca, ef: ef, acquirer: acquirer, logHook: logHook, withCallerID: true}
 	overrideContext := func(ctx context.Context) context.Context {
 		ctx = rpccontext.WithLogger(ctx, log)
-		ctx = rpccontext.WithRateLimiter(ctx, &fakeRateLimiter{})
+		ctx = rpccontext.WithRateLimiter(ctx, &mockRateLimiter{})
 		if st.withCallerID {
 			ctx = rpccontext.WithCallerID(ctx, agentID)
 		}
@@ -144,9 +144,9 @@ func setupServiceTest(t *testing.T) *serviceTest {
 	return st
 }
 
-type fakeRateLimiter struct{}
+type mockRateLimiter struct{}
 
-func (f *fakeRateLimiter) RateLimit(context.Context, int) error { return nil }
+func (f *mockRateLimiter) RateLimit(context.Context, int) error { return nil }
 
 func testCSR(t *testing.T) ([]byte, *ecdsa.PrivateKey) {
 	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
@@ -181,7 +181,7 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 		_, err := st.client.InitiateCredentialAcquisition(ctx, &credentialacquisitionv1.InitiateCredentialAcquisitionRequest{EntryId: "entry-2", Target: td.IDString()})
 		spiretest.RequireGRPCStatus(t, err, codes.NotFound, "entry not found or not authorized")
 	})
-	t.Run("the acquirer's refusal is relayed", func(t *testing.T) {
+	t.Run("a refusal of the acquirer is relayed", func(t *testing.T) {
 		st.acquirer.err = status.Error(codes.Unimplemented, `credential type "jwt" is not supported for target "spiffe://example.org"; supported: x509`)
 		defer func() { st.acquirer.err = nil }()
 		_, err := st.client.InitiateCredentialAcquisition(ctx, &credentialacquisitionv1.InitiateCredentialAcquisitionRequest{EntryId: "entry-1", Target: td.IDString(), CredentialType: types.CredentialType_CREDENTIAL_TYPE_JWT})
@@ -236,13 +236,13 @@ func TestEnrollCredential(t *testing.T) {
 		_, err := st.client.EnrollCredential(ctx, &credentialacquisitionv1.EnrollCredentialRequest{EntryId: "entry-1", Csr: csrDER, Evidence: []byte("e")})
 		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, "missing binding")
 	})
-	t.Run("the acquirer's refusal is relayed", func(t *testing.T) {
-		st.acquirer.err = status.Error(codes.PermissionDenied, "remote attestation failed: attestation results: not affirming: SEVSNP is \"contraindicated\"")
+	t.Run("a refusal of the acquirer is relayed", func(t *testing.T) {
+		st.acquirer.err = status.Error(codes.PermissionDenied, "remote attestation failed: Attestation Results: not affirming: SEVSNP is \"contraindicated\"")
 		defer func() { st.acquirer.err = nil }()
 		_, err := st.client.EnrollCredential(ctx, req)
-		spiretest.RequireGRPCStatus(t, err, codes.PermissionDenied, "failed to enroll credential: remote attestation failed: attestation results: not affirming: SEVSNP is \"contraindicated\"")
+		spiretest.RequireGRPCStatus(t, err, codes.PermissionDenied, "failed to enroll credential: remote attestation failed: Attestation Results: not affirming: SEVSNP is \"contraindicated\"")
 	})
-	t.Run("success: an X509-SVID for the CSR key and the entry's SPIFFE ID", func(t *testing.T) {
+	t.Run("success: an X509-SVID for the CSR key and the SPIFFE ID of the entry", func(t *testing.T) {
 		st.logHook.Reset()
 		st.acquirer.enrollResult = &acquisition.EnrollmentResult{CSR: csr, Verifier: "veraison", Submod: "SEVSNP", Measurement: measurement, IssuedAt: time.Now()}
 		resp, err := st.client.EnrollCredential(ctx, req)
@@ -308,7 +308,7 @@ func TestRetrieveCredential(t *testing.T) {
 		_, err := st.client.RetrieveCredential(ctx, req)
 		spiretest.RequireGRPCStatus(t, err, codes.Internal, "caller ID missing from request context")
 	})
-	t.Run("success: the container comes back as the vault released it", func(t *testing.T) {
+	t.Run("success: the container comes back as the Secret Vault released it", func(t *testing.T) {
 		st.acquirer.container = container
 		resp, err := st.client.RetrieveCredential(ctx, req)
 		require.NoError(t, err)

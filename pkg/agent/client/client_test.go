@@ -1146,7 +1146,7 @@ func createClient(t *testing.T) (*client, *testServer) {
 		entryServer:  &fakeEntryServer{},
 		svidServer:   &fakeSVIDServer{},
 
-		credentialAcquisitionServer: &fakeCredentialAcquisitionServer{},
+		credentialAcquisitionServer: &mockCredentialAcquisitionServer{},
 	}
 
 	client := newClient(&Config{
@@ -1379,7 +1379,7 @@ type testServer struct {
 	entryServer  *fakeEntryServer
 	svidServer   *fakeSVIDServer
 
-	credentialAcquisitionServer *fakeCredentialAcquisitionServer
+	credentialAcquisitionServer *mockCredentialAcquisitionServer
 }
 
 func makeAPIBundle(trustDomainName string) *types.Bundle {

@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type fakeCredentialAcquisitionServer struct {
+type mockCredentialAcquisitionServer struct {
 	credentialacquisitionv1.UnimplementedCredentialAcquisitionServer
 
 	mu           sync.Mutex
@@ -26,7 +26,7 @@ type fakeCredentialAcquisitionServer struct {
 	lastRetrieve *credentialacquisitionv1.RetrieveCredentialRequest
 }
 
-func (s *fakeCredentialAcquisitionServer) InitiateCredentialAcquisition(_ context.Context, req *credentialacquisitionv1.InitiateCredentialAcquisitionRequest) (*credentialacquisitionv1.InitiateCredentialAcquisitionResponse, error) {
+func (s *mockCredentialAcquisitionServer) InitiateCredentialAcquisition(_ context.Context, req *credentialacquisitionv1.InitiateCredentialAcquisitionRequest) (*credentialacquisitionv1.InitiateCredentialAcquisitionResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lastInitiate = req
@@ -36,7 +36,7 @@ func (s *fakeCredentialAcquisitionServer) InitiateCredentialAcquisition(_ contex
 	return s.initiateResp, nil
 }
 
-func (s *fakeCredentialAcquisitionServer) EnrollCredential(_ context.Context, req *credentialacquisitionv1.EnrollCredentialRequest) (*credentialacquisitionv1.EnrollCredentialResponse, error) {
+func (s *mockCredentialAcquisitionServer) EnrollCredential(_ context.Context, req *credentialacquisitionv1.EnrollCredentialRequest) (*credentialacquisitionv1.EnrollCredentialResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lastEnroll = req
@@ -46,7 +46,7 @@ func (s *fakeCredentialAcquisitionServer) EnrollCredential(_ context.Context, re
 	return s.enrollResp, nil
 }
 
-func (s *fakeCredentialAcquisitionServer) RetrieveCredential(_ context.Context, req *credentialacquisitionv1.RetrieveCredentialRequest) (*credentialacquisitionv1.RetrieveCredentialResponse, error) {
+func (s *mockCredentialAcquisitionServer) RetrieveCredential(_ context.Context, req *credentialacquisitionv1.RetrieveCredentialRequest) (*credentialacquisitionv1.RetrieveCredentialResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.lastRetrieve = req
@@ -83,12 +83,12 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 		assertConnectionIsNotNil(t, client)
 	})
 
-	t.Run("refusal carries the Server's status and releases the connection", func(t *testing.T) {
-		tc.credentialAcquisitionServer.err = status.Error(codes.PermissionDenied, "unsupported target")
+	t.Run("refusal carries the status of the Server and releases the connection", func(t *testing.T) {
+		tc.credentialAcquisitionServer.err = status.Error(codes.PermissionDenied, "unsupported Target")
 
 		resp, err := client.InitiateCredentialAcquisition(context.Background(), req)
 		require.Nil(t, resp)
-		require.EqualError(t, err, "failed to initiate credential acquisition: rpc error: code = PermissionDenied desc = unsupported target")
+		require.EqualError(t, err, "failed to initiate credential acquisition: rpc error: code = PermissionDenied desc = unsupported Target")
 		require.Equal(t, codes.PermissionDenied, status.Code(err))
 		assertConnectionIsNil(t, client)
 	})
@@ -125,7 +125,7 @@ func TestEnrollCredential(t *testing.T) {
 		assertConnectionIsNotNil(t, client)
 	})
 
-	t.Run("refusal carries the Server's status and releases the connection", func(t *testing.T) {
+	t.Run("refusal carries the status of the Server and releases the connection", func(t *testing.T) {
 		tc.credentialAcquisitionServer.err = status.Error(codes.InvalidArgument, "binding mismatch")
 
 		resp, err := client.EnrollCredential(context.Background(), req)
@@ -162,12 +162,12 @@ func TestRetrieveCredential(t *testing.T) {
 		assertConnectionIsNotNil(t, client)
 	})
 
-	t.Run("refusal carries the Server's status and releases the connection", func(t *testing.T) {
-		tc.credentialAcquisitionServer.err = status.Error(codes.PermissionDenied, "unsupported credential type")
+	t.Run("refusal carries the status of the Server and releases the connection", func(t *testing.T) {
+		tc.credentialAcquisitionServer.err = status.Error(codes.PermissionDenied, "unsupported Credential Type")
 
 		resp, err := client.RetrieveCredential(context.Background(), req)
 		require.Nil(t, resp)
-		require.EqualError(t, err, "failed to retrieve credential: rpc error: code = PermissionDenied desc = unsupported credential type")
+		require.EqualError(t, err, "failed to retrieve credential: rpc error: code = PermissionDenied desc = unsupported Credential Type")
 		require.Equal(t, codes.PermissionDenied, status.Code(err))
 		assertConnectionIsNil(t, client)
 	})

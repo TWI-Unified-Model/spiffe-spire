@@ -29,23 +29,23 @@ const (
 
 type acquirerTest struct {
 	a           *Acquirer
-	verifier    *fakeVerifier
-	vault       *fakeVault
+	verifier    *mockVerifier
+	vault       *mockVault
 	veraisonKey *ecdsa.PrivateKey
 	now         time.Time
 }
 
-// newAcquirerTest builds the Acquirer with a fake verifier that signs
+// newAcquirerTest builds the Acquirer with a mock Verifier that signs
 // affirming Attestation Results for the nonce it is asked for, with the
-// test measurement, and a fake vault.
+// test measurement, and a mock Secret Vault.
 func newAcquirerTest(t *testing.T) *acquirerTest {
 	now := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
 	veraisonKey := newTestKey(t)
-	f := newFakeVerifier(t)
+	f := newMockVerifier(t)
 	f.setAnswer(func(nonce, _ []byte, _ string) (string, string) {
 		return "complete", signEAR(t, veraisonKey, nonce, now, "SEVSNP", "affirming", snpCoMID(t, gcpMilan()))
 	})
-	vault := newFakeVault(t)
+	vault := newMockVault(t)
 	log, _ := test.NewNullLogger()
 	policies := map[string]*Policy{
 		testTarget: {Name: testTarget, Mode: ModeEnroll, CredentialTypes: []string{"x509"}, FreshnessKind: FreshnessPresentNonce,
@@ -75,7 +75,7 @@ func TestInitiate(t *testing.T) {
 	ctx := context.Background()
 	x := newAcquirerTest(t)
 
-	t.Run("enroll target: the Server mints the Handle", func(t *testing.T) {
+	t.Run("enroll Target: the Server mints the Handle", func(t *testing.T) {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "x509"})
 		require.NoError(t, err)
 		require.Equal(t, ModeEnroll, res.Mode)
@@ -86,7 +86,7 @@ func TestInitiate(t *testing.T) {
 		require.Empty(t, res.AcceptableCEK)
 		require.Equal(t, []string{testProfile}, res.AcceptableEvidence)
 	})
-	t.Run("retrieve target: the vault originates the Handle", func(t *testing.T) {
+	t.Run("retrieve Target: the Secret Vault originates the Handle", func(t *testing.T) {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testVaultTarget, CredentialType: "jwt", CredentialHint: "billing"})
 		require.NoError(t, err)
 		require.Equal(t, ModeRetrieve, res.Mode)
@@ -95,23 +95,23 @@ func TestInitiate(t *testing.T) {
 		require.Equal(t, []string{"DHKEM(P-256, HKDF-SHA256)+HKDF-SHA256+AES-256-GCM"}, res.AcceptableCEK)
 		require.Equal(t, map[string]string{"target": testVaultTarget, "credential_type": "jwt", "credential_hint": "billing"}, x.vault.lastInitiate)
 	})
-	t.Run("missing target", func(t *testing.T) {
+	t.Run("missing Target", func(t *testing.T) {
 		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID})
-		requireStatus(t, err, codes.InvalidArgument, "target must be specified")
+		requireStatus(t, err, codes.InvalidArgument, "Target must be specified")
 	})
-	t.Run("unsupported target", func(t *testing.T) {
+	t.Run("unsupported Target", func(t *testing.T) {
 		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: "https://other.example"})
-		requireStatus(t, err, codes.NotFound, "unsupported target")
+		requireStatus(t, err, codes.NotFound, "unsupported Target")
 	})
-	t.Run("a credential type the profile does not define", func(t *testing.T) {
+	t.Run("a Credential Type that is not one of TACRA", func(t *testing.T) {
 		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "password"})
-		requireStatus(t, err, codes.InvalidArgument, "is not one the profile defines")
+		requireStatus(t, err, codes.InvalidArgument, "is not one of TACRA")
 	})
-	t.Run("a credential type not supported for the Target", func(t *testing.T) {
+	t.Run("a Credential Type not supported for the Target", func(t *testing.T) {
 		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "jwt"})
 		requireStatus(t, err, codes.Unimplemented, "supported: x509")
 	})
-	t.Run("the vault's refusal is relayed", func(t *testing.T) {
+	t.Run("a refusal of the Secret Vault is relayed", func(t *testing.T) {
 		x.vault.mu.Lock()
 		x.vault.initiateErr = &vaultRefusal{Status: http.StatusForbidden, Code: "unsupported-target", Detail: "not served"}
 		x.vault.mu.Unlock()
@@ -151,7 +151,7 @@ func TestEnroll(t *testing.T) {
 		x.verifier.mu.Lock()
 		last := x.verifier.nonces[len(x.verifier.nonces)-1]
 		x.verifier.mu.Unlock()
-		require.Equal(t, BindingValue(handle, testTarget, csr), last, "the verifier was asked with the binding value as the nonce")
+		require.Equal(t, BindingValue(handle, testTarget, csr), last, "the Verifier was asked with the binding value as the nonce")
 	})
 	t.Run("a Credential Type not supported, named at enrollment only, is refused after the attestation", func(t *testing.T) {
 		handle := initiate(t, "", "")
@@ -183,7 +183,7 @@ func TestEnroll(t *testing.T) {
 		_, err := x.a.Enroll(ctx, enrollment([]byte("0123456789abcdef0123456789abcdef")))
 		requireStatus(t, err, codes.InvalidArgument, "no initiation returned this Handle")
 	})
-	t.Run("another Workload's Handle", func(t *testing.T) {
+	t.Run("the Handle of another Workload", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
 		e := enrollment(handle)
 		e.EntryID = "entry-2"
@@ -197,19 +197,19 @@ func TestEnroll(t *testing.T) {
 		_, err := x.a.Enroll(ctx, e)
 		requireStatus(t, err, codes.InvalidArgument, "not repeated")
 	})
-	t.Run("the binding must be the profile's", func(t *testing.T) {
+	t.Run("the binding must name binding-input and sha512", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
 		e := enrollment(handle)
 		e.BindingHash = "sha256"
 		_, err := x.a.Enroll(ctx, e)
 		requireStatus(t, err, codes.InvalidArgument, "is not recognized")
 	})
-	t.Run("the Freshness Kind must be the initiation's", func(t *testing.T) {
+	t.Run("the Freshness Kind must be the one named at initiation", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
 		e := enrollment(handle)
 		e.FreshnessKind = FreshnessAbsentNone
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.InvalidArgument, "differs from the initiation")
+		requireStatus(t, err, codes.InvalidArgument, "the kind named at initiation")
 	})
 	t.Run("an Evidence format not accepted", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
@@ -237,7 +237,7 @@ func TestEnroll(t *testing.T) {
 		requireStatus(t, err, codes.InvalidArgument, "malformed CSR")
 	})
 	t.Run("a substituted CSR fails the binding", func(t *testing.T) {
-		// the verifier answers the nonce it was asked for, so the only way the
+		// the Verifier answers the nonce it was asked for, so the only way the
 		// binding fails here is the Attestation Results naming another nonce
 		x.verifier.setAnswer(func(_, _ []byte, _ string) (string, string) {
 			key := newTestKey(t)
@@ -276,14 +276,14 @@ func TestEnroll(t *testing.T) {
 		_, err := x.a.Enroll(ctx, enrollment(handle))
 		requireStatus(t, err, codes.PermissionDenied, "not affirming")
 	})
-	t.Run("Evidence of a provider no policy verifier appraises", func(t *testing.T) {
+	t.Run("Evidence of a provider no policy Verifier appraises", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
 		e := enrollment(handle)
 		e.Evidence = testEvidence(t, "tdx_guest")
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.PermissionDenied, "none of the verifiers")
+		requireStatus(t, err, codes.PermissionDenied, "none of the Verifiers")
 	})
-	t.Run("a retrieve target refuses enrollment", func(t *testing.T) {
+	t.Run("a retrieve Target refuses enrollment", func(t *testing.T) {
 		e := enrollment([]byte("0123456789abcdef0123456789abcdef"))
 		e.Target = testVaultTarget
 		e.CredentialType = "jwt"
@@ -308,7 +308,7 @@ func TestRetrieve(t *testing.T) {
 		}
 	}
 
-	t.Run("the request is forwarded to the vault with the container coming back opaque", func(t *testing.T) {
+	t.Run("the request is forwarded to the Secret Vault with the container coming back opaque", func(t *testing.T) {
 		container, err := x.a.Retrieve(ctx, retrieval())
 		require.NoError(t, err)
 		require.JSONEq(t, x.vault.container, string(container))
@@ -322,7 +322,7 @@ func TestRetrieve(t *testing.T) {
 		_, err := x.a.Retrieve(ctx, retrieval())
 		requireStatus(t, err, codes.InvalidArgument, "no initiation returned this Handle")
 	})
-	t.Run("the vault's refusal is relayed with its reason", func(t *testing.T) {
+	t.Run("a refusal of the Secret Vault is relayed with its reason", func(t *testing.T) {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testVaultTarget, CredentialType: "jwt", CredentialHint: "billing"})
 		require.NoError(t, err)
 		x.vault.mu.Lock()
@@ -345,9 +345,9 @@ func TestRetrieve(t *testing.T) {
 		x.verifier.mu.Lock()
 		last := x.verifier.nonces[len(x.verifier.nonces)-1]
 		x.verifier.mu.Unlock()
-		require.Equal(t, BindingValue(res.Handle, testPassportTarget, r.CEKPub), last, "the verifier was asked with the binding value over CEKpub")
+		require.Equal(t, BindingValue(res.Handle, testPassportTarget, r.CEKPub), last, "the Verifier was asked with the binding value over CEKpub")
 		leg := x.vault.lastRetrieve
-		require.NotEmpty(t, leg.EAR, "the Attestation Results go to the vault")
+		require.NotEmpty(t, leg.EAR, "the Attestation Results go to the Secret Vault")
 		require.Empty(t, leg.Evidence, "the Evidence stays with the Server")
 		require.Empty(t, leg.Profile)
 		require.Equal(t, testPassportTarget, leg.Target)
@@ -363,18 +363,18 @@ func TestRetrieve(t *testing.T) {
 		x.verifier.mu.Lock()
 		asked := len(x.verifier.nonces)
 		x.verifier.mu.Unlock()
-		require.Positive(t, asked, "the verifier was asked before the type was refused")
+		require.Positive(t, asked, "the Verifier was asked before the type was refused")
 	})
-	t.Run("passport: no verifier for the Evidence's provider", func(t *testing.T) {
+	t.Run("passport: no Verifier for the provider of the Evidence", func(t *testing.T) {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testPassportTarget, CredentialType: "api-key", CredentialHint: "billing"})
 		require.NoError(t, err)
 		r := retrieval()
 		r.Target, r.CredentialType, r.FreshnessElement = testPassportTarget, "api-key", res.Handle
 		r.Evidence = testEvidence(t, "tdx_guest")
 		_, err = x.a.Retrieve(ctx, r)
-		requireStatus(t, err, codes.PermissionDenied, "none of the verifiers")
+		requireStatus(t, err, codes.PermissionDenied, "none of the Verifiers")
 	})
-	t.Run("an enroll target refuses retrieval", func(t *testing.T) {
+	t.Run("an enroll Target refuses retrieval", func(t *testing.T) {
 		r := retrieval()
 		r.Target = testTarget
 		r.CredentialType = "x509"
@@ -393,13 +393,13 @@ func (x *acquirerTest) restoreVerifier(t *testing.T) {
 	x.setVerifierHost(t, gcpMilan())
 }
 
-// TestEnrollPlatformRule applies the bench's platform rule: the Milan host of
+// TestEnrollPlatformRule applies the platform rule of the recorded runs: the Milan host of
 // the records passes under the waiver of mitigation bit 4, a host below the
 // TCB floor is refused, and a product line not admitted is refused.
 func TestEnrollPlatformRule(t *testing.T) {
 	ctx := context.Background()
 	x := newAcquirerTest(t)
-	x.a.platform = benchRule()
+	x.a.platform = recordedRule()
 	csr := testCSR(t)
 	enroll := func(t *testing.T) (*EnrollmentResult, error) {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "x509"})
@@ -443,9 +443,9 @@ func TestEnrollPlatformRule(t *testing.T) {
 	})
 }
 
-// TestVaultErrorCodes: a Secret Vault refusal reaches the Workload with the
-// gRPC code its HTTP status means in the TACRA EST profile; anything else
-// from the vault is Unavailable.
+// TestVaultErrorCodes: a refusal of the Secret Vault reaches the Workload with
+// the gRPC code of its HTTP status; anything else from the Secret Vault is
+// Unavailable.
 func TestVaultErrorCodes(t *testing.T) {
 	for _, tt := range []struct {
 		status int

@@ -10,7 +10,7 @@ import (
 )
 
 // The credential_acquisition block of the experimental configuration decodes
-// into the package's configuration: the Targets and the verifiers are labeled
+// into the configuration of the package: the Targets and the Verifiers are labeled
 // blocks, the rest plain settings.
 func TestParseCredentialAcquisitionConfig(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "server.conf")
