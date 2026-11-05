@@ -188,11 +188,14 @@ func (h *Handler) RetrieveCredential(ctx context.Context, req *workload.Retrieve
 }
 
 // credentialAcquisitionEntry attests the calling Workload and picks the
-// registration entry whose identity it acquires: the entry whose hint is the
-// Credential Hint when the Workload names one and an entry carries it,
-// otherwise the first of its entries, the default identity, in the order
-// FetchX509SVID lists them. A Credential Hint no entry carries is the
-// Relying Party's to use, ignore or reject (TACRA), so it travels on.
+// registration entry whose identity it acquires: the entry whose hint equals
+// the Credential Hint, when the Workload names one and one of its entries
+// carries it; otherwise the first of its entries, the default identity, in
+// the order FetchX509SVID lists them. When no entry carries the Credential
+// Hint, the Agent does not drop it: it forwards the hint to the Server with
+// the default entry, because in TACRA the Credential Hint is addressed to
+// the RATS Relying Party, which uses it, ignores it or refuses the request.
+// The Agent does not decide that for the Server.
 func (h *Handler) credentialAcquisitionEntry(ctx context.Context, log logrus.FieldLogger, start time.Time, method, hint string) (*common.RegistrationEntry, []*common.Selector, error) {
 	selectors, err := h.c.Attestor.Attest(ctx)
 	if err != nil {
