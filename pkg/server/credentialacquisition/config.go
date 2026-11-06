@@ -287,7 +287,7 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 			}
 		}
 		if len(p.Verifiers) == 0 {
-			return fail("verifiers is required: without it the Attestation Results of no Verifier are accepted")
+			return fail("at least one Verifier must be configured")
 		}
 		for _, v := range p.Verifiers {
 			if _, ok := c.Verifier[v]; !ok {
@@ -314,7 +314,7 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 		case ModelPassport:
 			p.RATSModel = ModelPassport
 			if len(p.Verifiers) == 0 {
-				return fail("rats_model passport needs verifiers: the Server obtains the Attestation Results")
+				return fail("the Passport RATS model requires one or more Verifiers: the Server obtains the Attestation Results")
 			}
 			for _, v := range p.Verifiers {
 				if _, ok := c.Verifier[v]; !ok {
@@ -322,7 +322,7 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 				}
 			}
 		default:
-			return fail("rats_model %q is not passport or background-check", t.RATSModel)
+			return fail("rats_model %q is not %s or %s", t.RATSModel, ModelPassport, ModelBackgroundCheck)
 		}
 		for _, ct := range p.CredentialTypes {
 			if !slices.Contains(credentialTypes, ct) {
@@ -336,14 +336,14 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 	case "":
 		return fail("mode is required: enroll or retrieve")
 	default:
-		return fail("mode %q is not enroll or retrieve", p.Mode)
+		return fail("mode %q is not %s or %s", p.Mode, ModeEnroll, ModeRetrieve)
 	}
 	expiresIn, err := parseDuration(t.ExpiresIn, 5*time.Minute)
 	if err != nil {
 		return fail("expires_in: %v", err)
 	}
 	if expiresIn < time.Minute {
-		return fail("expires_in %s is below the minute TACRA recommends for a Freshness Handle", expiresIn)
+		return fail("expires_in %s is below the minimum of %s that TACRA recommends for a Freshness Handle", expiresIn, time.Minute)
 	}
 	p.ExpiresIn = expiresIn
 	return p, nil

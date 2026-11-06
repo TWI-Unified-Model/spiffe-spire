@@ -54,10 +54,10 @@ func TestEARVerify(t *testing.T) {
 	t.Run("stale results are refused", func(t *testing.T) {
 		jws := signEAR(t, veraisonKey, nonce, now.Add(-3*time.Minute), "SEVSNP", "affirming", comid)
 		_, err := v.verify(jws, []string{"veraison"}, nonce)
-		require.ErrorIs(t, err, ErrEARStale)
+		require.ErrorIs(t, err, ErrEAROutsideWindow)
 		jws = signEAR(t, veraisonKey, nonce, now.Add(time.Minute), "SEVSNP", "affirming", comid)
 		_, err = v.verify(jws, []string{"veraison"}, nonce)
-		require.ErrorIs(t, err, ErrEARStale)
+		require.ErrorIs(t, err, ErrEAROutsideWindow)
 	})
 	t.Run("results for another nonce are refused", func(t *testing.T) {
 		jws := signEAR(t, veraisonKey, []byte("another nonce"), now, "SEVSNP", "affirming", comid)

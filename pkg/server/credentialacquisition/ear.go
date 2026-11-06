@@ -21,11 +21,11 @@ import (
 
 // Refusals of Attestation Results.
 var (
-	ErrEARSignature    = errors.New("the Attestation Results are not signed by a Verifier that the policy for the Target names")
-	ErrEARStale        = errors.New("the Attestation Results were issued too long ago or in the future")
-	ErrEARNonce        = errors.New("the Attestation Results report a nonce that is not the binding value")
-	ErrEARNotAffirming = errors.New("the Attestation Results are not affirming")
-	ErrEARMalformed    = errors.New("the Attestation Results are malformed")
+	ErrEARSignature     = errors.New("the Attestation Results are not signed by a Verifier specified by the policy for the Target")
+	ErrEAROutsideWindow = errors.New("the Attestation Results were issued outside the accepted time window, too long ago or in the future")
+	ErrEARNonce         = errors.New("the Attestation Results report a nonce that is not the binding value")
+	ErrEARNotAffirming  = errors.New("the Verifier did not affirm the Evidence")
+	ErrEARMalformed     = errors.New("the Attestation Results are malformed")
 )
 
 // earKey is the EAR signing key of a Verifier, provisioned, and the submodules
@@ -38,7 +38,7 @@ type earKey struct {
 
 // earVerifier verifies the Attestation Results a Veraison Verifier returns:
 // an EAR (RFC 9711 EAT in a JWT signed ES256) that must be signed by the key
-// provisioned for a Verifier that the policy for the Target names, be recent, report the
+// provisioned for a Verifier specified by the policy for the Target, be recent, report the
 // binding value as its eat_nonce, and be affirming for the submodule of the
 // scheme of the Verifier.
 type earVerifier struct {
@@ -138,7 +138,7 @@ func (v *earVerifier) verify(jws string, verifiers []string, wantNonce []byte) (
 	now := v.now()
 	iat := time.Unix(claims.IAT, 0)
 	if claims.IAT == 0 || iat.Before(now.Add(-v.maxAge)) || iat.After(now.Add(v.skew)) {
-		return nil, fmt.Errorf("%w: iat %s", ErrEARStale, iat.UTC().Format(time.RFC3339))
+		return nil, fmt.Errorf("%w: iat %s", ErrEAROutsideWindow, iat.UTC().Format(time.RFC3339))
 	}
 	nonce, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(claims.Nonce, "="))
 	if err != nil || !bytes.Equal(nonce, wantNonce) {

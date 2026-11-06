@@ -22,7 +22,7 @@ import (
 
 // Refusals of the appraisal.
 var (
-	ErrNoVerifier          = errors.New("the policy for the Target names no Verifier for Evidence of this provider")
+	ErrNoVerifier          = errors.New("the policy for the Target specifies no Verifier for Evidence of this provider")
 	ErrVerifierUnavailable = errors.New("the Verifier is unavailable")
 	ErrNoResults           = errors.New("the Verifier produced no Attestation Results")
 )
@@ -61,7 +61,7 @@ func newAppraiser(c *Config) (*appraiser, error) {
 	return a, nil
 }
 
-// route picks, among the Verifiers that the policy for the Target names, the one
+// route picks, among the Verifiers specified by the policy for the Target, the one
 // for the TSM report provider of the Evidence. The policy chooses the Verifier; the
 // Evidence only picks among those, and there is no default for the rest.
 func (a *appraiser) route(evidence []byte, accept []string) (*verifier, error) {

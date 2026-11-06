@@ -170,7 +170,7 @@ func TestEnroll(t *testing.T) {
 		e := enrollment(handle)
 		e.CredentialType = "jwt"
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.PermissionDenied, "the Attestation Results are not signed by a Verifier that the policy for the Target names")
+		requireStatus(t, err, codes.PermissionDenied, "the Attestation Results are not signed by a Verifier specified by the policy for the Target")
 	})
 	t.Run("a Handle is single use", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
@@ -280,14 +280,14 @@ func TestEnroll(t *testing.T) {
 		defer x.restoreVerifier(t)
 		handle := initiate(t, "x509", "")
 		_, err := x.a.Enroll(ctx, enrollment(handle))
-		requireStatus(t, err, codes.PermissionDenied, `the Attestation Results are not affirming: SEVSNP is "contraindicated"`)
+		requireStatus(t, err, codes.PermissionDenied, `the Verifier did not affirm the Evidence: SEVSNP is "contraindicated"`)
 	})
 	t.Run("Evidence of a provider no policy Verifier appraises", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
 		e := enrollment(handle)
 		e.Evidence = testEvidence(t, "tdx_guest")
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.PermissionDenied, "the policy for the Target names no Verifier for Evidence of this provider")
+		requireStatus(t, err, codes.PermissionDenied, "the policy for the Target specifies no Verifier for Evidence of this provider")
 	})
 	t.Run("a retrieve Target refuses enrollment", func(t *testing.T) {
 		e := enrollment([]byte("0123456789abcdef0123456789abcdef"))
@@ -378,7 +378,7 @@ func TestRetrieve(t *testing.T) {
 		r.Target, r.CredentialType, r.FreshnessElement = testPassportTarget, "api-key", res.Handle
 		r.Evidence = testEvidence(t, "tdx_guest")
 		_, err = x.a.Retrieve(ctx, r)
-		requireStatus(t, err, codes.PermissionDenied, "the policy for the Target names no Verifier for Evidence of this provider")
+		requireStatus(t, err, codes.PermissionDenied, "the policy for the Target specifies no Verifier for Evidence of this provider")
 	})
 	t.Run("an enroll Target refuses retrieval", func(t *testing.T) {
 		r := retrieval()
