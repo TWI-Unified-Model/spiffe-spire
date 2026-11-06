@@ -158,11 +158,12 @@ SPIRE: `2m`, `90s`.
 
 | `verifier` | Description |
 | --- | --- |
-| `url` | The base URL of the challenge-response API |
+| `kind` | The kind of Verifier, how the Server sends it Evidence and reads its Attestation Results: `veraison`, the default and the one kind for now |
+| `url` | The base URL of the API of the Verifier; for `veraison`, its challenge-response API |
 | `ca_path` | The certificate of the CA that signed the TLS certificate of the Verifier |
-| `ear_key_path` | The public key that signs the Attestation Results: an EC P-256 JWK or a PEM public key, provisioned |
 | `provider` | The TSM report provider of the Evidence this Verifier appraises: `sev_guest` or `tdx_guest` |
-| `submods` | The EAR submodules it speaks for, for example `SEVSNP` |
+| `ear_key_path` | For `veraison`: the public key that signs the Attestation Results, an EC P-256 JWK or a PEM public key, provisioned |
+| `submods` | For `veraison`: the EAR submodules it speaks for, each of a platform family, `SEVSNP` or `TDX` |
 
 | `target` | Description | Default |
 | --- | --- | --- |
@@ -177,7 +178,8 @@ SPIRE: `2m`, `90s`.
 
 | `secret_vault` | Description |
 | --- | --- |
-| `url` | The base URL of the TACRA API of the Secret Vault |
+| `kind` | The kind of Secret Vault, how the Server forwards the initiate and the retrieve parts of the flow: `json`, the TACRA calls as JSON over HTTPS, the default and the one kind for now |
+| `url` | The base URL of the API of the Secret Vault |
 | `ca_path` | The certificate of the CA that signed the TLS certificate of the Secret Vault |
 | `client_cert_path`, `client_key_path` | A certificate and key presented to the Secret Vault in place of the ones above |
 
@@ -255,6 +257,24 @@ or the file `sevsnp_products_path` names, in the same format.
 A product line without a layout is not decoded, so the rule refuses it; an
 operator who has the layout adds it to the file. A rule that names a product
 line the data does not have is refused when the Server starts.
+
+## Points of extension
+
+The Server has three points of extension, each a list of implementations
+behind one interface, named in the configuration or in the rule file. The data
+that grows on its own schedule, the product lines of AMD and their chains, is
+in files under version control, not in the code.
+
+| Point | Named by | Implementations |
+| --- | --- | --- |
+| Platform family: how the claims of a family are checked against the platform rule | the key of the entry in the rule file | `sevsnp`, `tdx` |
+| Verifier kind: how Evidence is sent to a Verifier and its Attestation Results are verified and read | `kind` of a `verifier` | `veraison` |
+| Secret Vault kind: how the initiate and the retrieve parts of the flow are forwarded | `kind` of `secret_vault` | `json` |
+
+The kind is chosen by the operator and confirmed by the Server, not guessed
+from what arrives: a Verifier of kind `veraison` reads the profile an EAR names
+in `eat_profile`, and refuses Attestation Results that name another, with both
+names in the refusal.
 
 ## Refusals
 

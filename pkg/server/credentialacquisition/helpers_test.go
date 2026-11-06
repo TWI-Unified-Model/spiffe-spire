@@ -120,6 +120,11 @@ func snpCoMID(t *testing.T, h snpHost) string {
 // the submodule with the status and the annotated evidence: for SEVSNP the
 // CoMID (snpCoMID), for TDX the map of strings the TDX Verifier annotates.
 func signEAR(t *testing.T, key *ecdsa.PrivateKey, nonce []byte, iat time.Time, submod, status string, annotated any) string {
+	return signEARWithProfile(t, key, nonce, iat, submod, status, annotated, earProfile)
+}
+
+// signEARWithProfile signs an EAR that names profile as its eat_profile.
+func signEARWithProfile(t *testing.T, key *ecdsa.PrivateKey, nonce []byte, iat time.Time, submod, status string, annotated any, profile string) string {
 	var evidence any
 	switch a := annotated.(type) {
 	case string:
@@ -130,7 +135,7 @@ func signEAR(t *testing.T, key *ecdsa.PrivateKey, nonce []byte, iat time.Time, s
 	claims := map[string]any{
 		"ear.verifier-id": map[string]string{"build": "test", "developer": "test"},
 		"eat_nonce":       base64.RawURLEncoding.EncodeToString(nonce),
-		"eat_profile":     "tag:github.com,2023:veraison/ear",
+		"eat_profile":     profile,
 		"iat":             iat.Unix(),
 		"submods": map[string]any{
 			submod: map[string]any{

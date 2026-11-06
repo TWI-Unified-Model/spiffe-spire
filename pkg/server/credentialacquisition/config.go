@@ -158,7 +158,13 @@ type TargetConfig struct {
 
 // VerifierConfig is one RATS Verifier.
 type VerifierConfig struct {
-	// URL is the base URL of the challenge-response API of the Verifier.
+	// Kind is the kind of Verifier: how the Server sends it Evidence and
+	// reads its Attestation Results. veraison is the default, and the one
+	// kind for now.
+	Kind string `hcl:"kind"`
+
+	// URL is the base URL of the API of the Verifier: for kind veraison, its
+	// challenge-response API.
 	URL string `hcl:"url"`
 
 	// CAPath is the file holding the certificate of the CA that signed the TLS
@@ -166,23 +172,28 @@ type VerifierConfig struct {
 	// rotates its own certificate under it without a change here.
 	CAPath string `hcl:"ca_path"`
 
-	// EARKeyPath is the file holding the public key the Verifier signs its
-	// Attestation Results with: an EC P-256 public JWK, or a PEM public key.
-	// It is provisioned, never fetched.
+	// EARKeyPath, for kind veraison, is the file holding the public key the
+	// Verifier signs its Attestation Results with: an EC P-256 public JWK, or
+	// a PEM public key. It is provisioned, never fetched.
 	EARKeyPath string `hcl:"ear_key_path"`
 
 	// Provider is the TSM report provider of the Evidence this Verifier
 	// appraises: sev_guest or tdx_guest.
 	Provider string `hcl:"provider"`
 
-	// Submods names the EAR submodules the key of the Verifier speaks for, for
-	// example SEVSNP.
+	// Submods, for kind veraison, names the EAR submodules the Verifier speaks
+	// for, each of a platform family: SEVSNP, TDX.
 	Submods []string `hcl:"submods"`
 }
 
 // SecretVaultConfig is the Secret Vault of the Targets in retrieve mode.
 type SecretVaultConfig struct {
-	// URL is the base URL of the TACRA API of the Secret Vault.
+	// Kind is the kind of Secret Vault: how the Server forwards the initiate
+	// and the retrieve parts of the flow to it. json, the TACRA calls as JSON
+	// over HTTPS, is the default and the one kind for now.
+	Kind string `hcl:"kind"`
+
+	// URL is the base URL of the API of the Secret Vault.
 	URL string `hcl:"url"`
 
 	// CAPath is the file holding the certificate of the CA that signed the TLS
@@ -221,17 +232,18 @@ func (c *Config) Validate() (map[string]*Policy, error) {
 		return nil, errors.New("credential_acquisition: acceptable_evidence is required")
 	}
 	for name, v := range c.Verifier {
-		switch {
-		case v == nil:
+		if v == nil {
 			return nil, fmt.Errorf("credential_acquisition: Verifier %q is empty", name)
-		case v.URL == "":
-			return nil, fmt.Errorf("credential_acquisition: Verifier %q: url is required", name)
-		case v.EARKeyPath == "":
-			return nil, fmt.Errorf("credential_acquisition: Verifier %q: ear_key_path is required", name)
-		case v.Provider == "":
+		}
+		kind, ok := verifierKindNamed(v.Kind)
+		if !ok {
+			return nil, fmt.Errorf("credential_acquisition: Verifier %q: kind %q is not one of %s", name, v.Kind, verifierKindNames())
+		}
+		if v.Provider == "" {
 			return nil, fmt.Errorf("credential_acquisition: Verifier %q: provider is required", name)
-		case len(v.Submods) == 0:
-			return nil, fmt.Errorf("credential_acquisition: Verifier %q: submods is required", name)
+		}
+		if err := kind.Validate(v); err != nil {
+			return nil, fmt.Errorf("credential_acquisition: Verifier %q: %w", name, err)
 		}
 	}
 	if _, err := parseDuration(c.EARMaxAge, 2*time.Minute); err != nil {
@@ -240,8 +252,14 @@ func (c *Config) Validate() (map[string]*Policy, error) {
 	if _, err := parseDuration(c.EARSkew, 5*time.Second); err != nil {
 		return nil, fmt.Errorf("credential_acquisition: ear_skew: %w", err)
 	}
-	if c.SecretVault != nil && c.SecretVault.URL == "" {
-		return nil, errors.New("credential_acquisition: secret_vault: url is required")
+	if c.SecretVault != nil {
+		kind, ok := secretVaultKindNamed(c.SecretVault.Kind)
+		if !ok {
+			return nil, fmt.Errorf("credential_acquisition: secret_vault: kind %q is not one of %s", c.SecretVault.Kind, secretVaultKindNames())
+		}
+		if err := kind.Validate(c.SecretVault); err != nil {
+			return nil, fmt.Errorf("credential_acquisition: secret_vault: %w", err)
+		}
 	}
 
 	policies := make(map[string]*Policy, len(c.Target))

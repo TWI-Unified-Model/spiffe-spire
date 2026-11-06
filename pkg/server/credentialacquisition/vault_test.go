@@ -68,8 +68,8 @@ func writeRefusal(w http.ResponseWriter, e *vaultRefusal) {
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": e.Code, "detail": e.Detail})
 }
 
-func newTestVaultClient(f *mockVault) *vaultClient {
-	return &vaultClient{url: f.server.URL, client: f.server.Client()}
+func newTestVaultClient(f *mockVault) *jsonVault {
+	return &jsonVault{url: f.server.URL, client: f.server.Client()}
 }
 
 func TestVaultClient(t *testing.T) {
@@ -77,7 +77,7 @@ func TestVaultClient(t *testing.T) {
 	v := newTestVaultClient(f)
 
 	t.Run("initiate forwards the Target, the Credential Type and the Hint", func(t *testing.T) {
-		vi, handle, err := v.initiate(context.Background(), "https://api.example", "jwt", "billing")
+		vi, handle, err := v.Initiate(context.Background(), "https://api.example", "jwt", "billing")
 		require.NoError(t, err)
 		require.Equal(t, f.handle, handle)
 		require.Equal(t, ModeRetrieve, vi.Mode)
@@ -85,13 +85,13 @@ func TestVaultClient(t *testing.T) {
 		require.Equal(t, map[string]string{"target": "https://api.example", "credential_type": "jwt", "credential_hint": "billing"}, f.lastInitiate)
 	})
 	t.Run("initiate omits what the Workload omitted", func(t *testing.T) {
-		_, _, err := v.initiate(context.Background(), "https://api.example", "", "")
+		_, _, err := v.Initiate(context.Background(), "https://api.example", "", "")
 		require.NoError(t, err)
 		require.Equal(t, map[string]string{"target": "https://api.example"}, f.lastInitiate)
 	})
 	t.Run("retrieve returns the container as the Secret Vault sent it", func(t *testing.T) {
 		req := &vaultRetrieval{FreshnessKind: FreshnessPresentNonce, Target: "https://api.example", Handle: "aGFuZGxl", Evidence: "ZXY", CEKPub: "Y2Vr"}
-		container, err := v.retrieve(context.Background(), req)
+		container, err := v.Retrieve(context.Background(), req)
 		require.NoError(t, err)
 		require.JSONEq(t, f.container, string(container))
 		require.Equal(t, *req, f.lastRetrieve)
@@ -101,7 +101,7 @@ func TestVaultClient(t *testing.T) {
 		f.retrieveErr = &vaultRefusal{Status: http.StatusUnprocessableEntity, Code: "unsupported-credential-type", Detail: "supported: api-key"}
 		f.mu.Unlock()
 		defer func() { f.mu.Lock(); f.retrieveErr = nil; f.mu.Unlock() }()
-		_, err := v.retrieve(context.Background(), &vaultRetrieval{})
+		_, err := v.Retrieve(context.Background(), &vaultRetrieval{})
 		var refusal *vaultRefusal
 		require.True(t, errors.As(err, &refusal))
 		require.Equal(t, http.StatusUnprocessableEntity, refusal.Status)
@@ -109,8 +109,8 @@ func TestVaultClient(t *testing.T) {
 		require.Equal(t, "supported: api-key", refusal.Detail)
 	})
 	t.Run("a Secret Vault that is down is unavailable", func(t *testing.T) {
-		down := &vaultClient{url: "http://127.0.0.1:1", client: http.DefaultClient}
-		_, _, err := down.initiate(context.Background(), "https://api.example", "", "")
+		down := &jsonVault{url: "http://127.0.0.1:1", client: http.DefaultClient}
+		_, _, err := down.Initiate(context.Background(), "https://api.example", "", "")
 		require.ErrorIs(t, err, ErrVaultUnavailable)
 	})
 }

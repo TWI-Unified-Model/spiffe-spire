@@ -56,11 +56,8 @@ func newAcquirerTest(t *testing.T) *acquirerTest {
 		testPassportTarget: {Name: testPassportTarget, Mode: ModeRetrieve, CredentialTypes: []string{"api-key"}, FreshnessKind: FreshnessPresentNonce,
 			ExpiresIn: 5 * time.Minute, RATSModel: ModelPassport, Verifiers: []string{"veraison"}},
 	}
-	ear := &earVerifier{
-		keys:   []earKey{{name: "veraison", key: &veraisonKey.PublicKey, submods: []string{"SEVSNP"}}},
-		maxAge: 2 * time.Minute, skew: 5 * time.Second, now: func() time.Time { return now },
-	}
-	a := newAcquirer(log, policies, []string{testProfile}, newTestAppraiser(f), ear, newTestVaultClient(vault), func() time.Time { return now })
+	window := resultsWindow{maxAge: 2 * time.Minute, skew: 5 * time.Second, now: func() time.Time { return now }}
+	a := newAcquirer(log, policies, []string{testProfile}, newTestVerifiers(f, &veraisonKey.PublicKey, window), newTestVaultClient(vault), func() time.Time { return now })
 	return &acquirerTest{a: a, verifier: f, vault: vault, veraisonKey: veraisonKey, now: now}
 }
 
@@ -145,7 +142,7 @@ func TestEnroll(t *testing.T) {
 		res, err := x.a.Enroll(ctx, enrollment(handle))
 		require.NoError(t, err)
 		require.Equal(t, "veraison", res.Verifier)
-		require.Equal(t, "SEVSNP", res.Submod)
+		require.Equal(t, familySEVSNP, res.Family)
 		require.Equal(t, testMeasurement, res.Measurement)
 		require.NotNil(t, res.CSR.PublicKey)
 		x.verifier.mu.Lock()
@@ -170,7 +167,7 @@ func TestEnroll(t *testing.T) {
 		e := enrollment(handle)
 		e.CredentialType = "jwt"
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.PermissionDenied, "the Attestation Results are not signed by a Verifier specified by the policy for the Target")
+		requireStatus(t, err, codes.PermissionDenied, "the Attestation Results are not signed by the key provisioned for the Verifier that returned them")
 	})
 	t.Run("a Handle is single use", func(t *testing.T) {
 		handle := initiate(t, "x509", "")

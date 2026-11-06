@@ -3,18 +3,90 @@ package credentialacquisition
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 )
 
 // ErrVaultUnavailable is the Secret Vault not answering.
 var ErrVaultUnavailable = errors.New("the Secret Vault is unavailable")
+
+// A secretVaultKind is one kind of Secret Vault this Server is the conduit to:
+// how it forwards the initiate and the retrieve parts of the flow. The
+// configuration names the kind; the kinds are listed in secretVaultKinds, and
+// another kind is a new type there. The rest of the Server sees a secretVault.
+type secretVaultKind interface {
+	// Name is the kind as the configuration spells it.
+	Name() string
+	// Validate checks the configuration of a Secret Vault of the kind.
+	Validate(c *SecretVaultConfig) error
+	// New builds the Secret Vault of the kind, with the TLS configuration the
+	// Server calls it with.
+	New(c *SecretVaultConfig, tc *tls.Config) (secretVault, error)
+}
+
+// A secretVault is the configured Secret Vault of the Targets in retrieve
+// mode: the RATS Relying Party that originates the Freshness Handle, appraises
+// the Evidence and releases the credential, sealed to the Credential
+// Encryption Key of the Workload. The Server forwards both the initiate and
+// the retrieve parts of the flow.
+type secretVault interface {
+	Initiate(ctx context.Context, target, credentialType, hint string) (*vaultInitiation, []byte, error)
+	Retrieve(ctx context.Context, req *vaultRetrieval) ([]byte, error)
+}
+
+// secretVaultKinds lists the kinds: json, the one kind for now.
+var secretVaultKinds = []secretVaultKind{jsonVaultKind{}}
+
+// defaultSecretVaultKind is the kind of a Secret Vault whose configuration
+// names none.
+const defaultSecretVaultKind = "json"
+
+func secretVaultKindNamed(name string) (secretVaultKind, bool) {
+	if name == "" {
+		name = defaultSecretVaultKind
+	}
+	i := slices.IndexFunc(secretVaultKinds, func(k secretVaultKind) bool { return k.Name() == name })
+	if i < 0 {
+		return nil, false
+	}
+	return secretVaultKinds[i], true
+}
+
+func secretVaultKindNames() string {
+	names := make([]string, 0, len(secretVaultKinds))
+	for _, k := range secretVaultKinds {
+		names = append(names, k.Name())
+	}
+	return strings.Join(names, ", ")
+}
+
+// newSecretVault builds the configured Secret Vault by its kind, or none.
+func newSecretVault(c *Config) (secretVault, error) {
+	if c.SecretVault == nil {
+		return nil, nil
+	}
+	kind, ok := secretVaultKindNamed(c.SecretVault.Kind)
+	if !ok {
+		return nil, fmt.Errorf("secret_vault: kind %q is not one of %s", c.SecretVault.Kind, secretVaultKindNames())
+	}
+	certPath, keyPath := c.ClientCertPath, c.ClientKeyPath
+	if c.SecretVault.ClientCertPath != "" || c.SecretVault.ClientKeyPath != "" {
+		certPath, keyPath = c.SecretVault.ClientCertPath, c.SecretVault.ClientKeyPath
+	}
+	tc, err := clientTLS(c.SecretVault.CAPath, certPath, keyPath)
+	if err != nil {
+		return nil, fmt.Errorf("secret_vault: %w", err)
+	}
+	return kind.New(c.SecretVault, tc)
+}
 
 // vaultRefusal is a refusal of the Secret Vault: its HTTP status and the
 // error code and detail it answers with.
@@ -25,34 +97,6 @@ type vaultRefusal struct {
 }
 
 func (e *vaultRefusal) Error() string { return fmt.Sprintf("Secret Vault: %s: %s", e.Code, e.Detail) }
-
-// vaultClient is the conduit to the Secret Vault of the Targets in retrieve
-// mode: the Secret Vault is the RATS Relying Party that originates the
-// Freshness Handle, appraises the Evidence and releases the credential, sealed
-// to the Credential Encryption Key of the Workload. The Server forwards both
-// the initiate and the retrieve parts of the flow.
-type vaultClient struct {
-	url    string
-	client *http.Client
-}
-
-func newVaultClient(c *Config) (*vaultClient, error) {
-	if c.SecretVault == nil {
-		return nil, nil
-	}
-	certPath, keyPath := c.ClientCertPath, c.ClientKeyPath
-	if c.SecretVault.ClientCertPath != "" || c.SecretVault.ClientKeyPath != "" {
-		certPath, keyPath = c.SecretVault.ClientCertPath, c.SecretVault.ClientKeyPath
-	}
-	tc, err := clientTLS(c.SecretVault.CAPath, certPath, keyPath)
-	if err != nil {
-		return nil, fmt.Errorf("secret_vault: %w", err)
-	}
-	return &vaultClient{
-		url:    strings.TrimRight(c.SecretVault.URL, "/"),
-		client: &http.Client{Timeout: 60 * time.Second, Transport: &http.Transport{TLSClientConfig: tc}},
-	}, nil
-}
 
 // vaultInitiation is what the Secret Vault answers at initiation, a byte
 // string as unpadded base64url.
@@ -81,7 +125,35 @@ type vaultRetrieval struct {
 	CEKPub         string        `json:"cek_pub"`
 }
 
-func (v *vaultClient) initiate(ctx context.Context, target, credentialType, hint string) (*vaultInitiation, []byte, error) {
+// jsonVaultKind is the kind of Secret Vault of the proof of concept: the TACRA
+// calls as JSON over HTTPS, initiate and retrieve posted to /tacra/v1/initiate
+// and /tacra/v1/retrieve under the URL of the Secret Vault, a refusal answered
+// as an HTTP status with an error code and a detail.
+type jsonVaultKind struct{}
+
+func (jsonVaultKind) Name() string { return "json" }
+
+func (jsonVaultKind) Validate(c *SecretVaultConfig) error {
+	if c.URL == "" {
+		return errors.New("url is required")
+	}
+	return nil
+}
+
+func (jsonVaultKind) New(c *SecretVaultConfig, tc *tls.Config) (secretVault, error) {
+	return &jsonVault{
+		url:    strings.TrimRight(c.URL, "/"),
+		client: &http.Client{Timeout: 60 * time.Second, Transport: &http.Transport{TLSClientConfig: tc}},
+	}, nil
+}
+
+// jsonVault is a Secret Vault of kind json.
+type jsonVault struct {
+	url    string
+	client *http.Client
+}
+
+func (v *jsonVault) Initiate(ctx context.Context, target, credentialType, hint string) (*vaultInitiation, []byte, error) {
 	body := map[string]string{"target": target}
 	if credentialType != "" {
 		body["credential_type"] = credentialType
@@ -103,7 +175,7 @@ func (v *vaultClient) initiate(ctx context.Context, target, credentialType, hint
 	return &out, handle, nil
 }
 
-func (v *vaultClient) retrieve(ctx context.Context, req *vaultRetrieval) ([]byte, error) {
+func (v *jsonVault) Retrieve(ctx context.Context, req *vaultRetrieval) ([]byte, error) {
 	var container json.RawMessage
 	if err := v.post(ctx, "/tacra/v1/retrieve", req, &container); err != nil {
 		return nil, err
@@ -111,7 +183,7 @@ func (v *vaultClient) retrieve(ctx context.Context, req *vaultRetrieval) ([]byte
 	return container, nil
 }
 
-func (v *vaultClient) post(ctx context.Context, path string, in, out any) error {
+func (v *jsonVault) post(ctx context.Context, path string, in, out any) error {
 	body, err := json.Marshal(in)
 	if err != nil {
 		return err

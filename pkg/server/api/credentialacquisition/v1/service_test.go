@@ -244,7 +244,7 @@ func TestEnrollCredential(t *testing.T) {
 	})
 	t.Run("success: an X509-SVID for the CSR key and the SPIFFE ID of the entry", func(t *testing.T) {
 		st.logHook.Reset()
-		st.acquirer.enrollResult = &acquisition.EnrollmentResult{CSR: csr, Verifier: "veraison", Submod: "SEVSNP", Measurement: measurement, IssuedAt: time.Now()}
+		st.acquirer.enrollResult = &acquisition.EnrollmentResult{CSR: csr, Verifier: "veraison", Family: "sevsnp", Measurement: measurement, IssuedAt: time.Now()}
 		resp, err := st.client.EnrollCredential(ctx, req)
 		require.NoError(t, err)
 		require.Equal(t, &acquisition.Enrollment{

@@ -30,9 +30,8 @@ type Acquirer struct {
 	policies  map[string]*Policy
 	evidence  []string
 	sessions  *sessions
-	appraiser *appraiser
-	ear       *earVerifier
-	vault     *vaultClient
+	verifiers map[string]verifierClient
+	vault     secretVault
 	platform  *PlatformRule
 }
 
@@ -45,19 +44,11 @@ func New(c *Config, log logrus.FieldLogger) (*Acquirer, error) {
 	}
 	maxAge, _ := parseDuration(c.EARMaxAge, 2*time.Minute)
 	skew, _ := parseDuration(c.EARSkew, 5*time.Second)
-	ear := &earVerifier{maxAge: maxAge, skew: skew, now: time.Now}
-	for name, v := range c.Verifier {
-		key, err := loadEARKey(v.EARKeyPath)
-		if err != nil {
-			return nil, fmt.Errorf("credential_acquisition: Verifier %q: ear_key_path: %w", name, err)
-		}
-		ear.keys = append(ear.keys, earKey{name: name, key: key, submods: v.Submods})
-	}
-	appraiser, err := newAppraiser(c)
+	verifiers, err := newVerifiers(c, resultsWindow{maxAge: maxAge, skew: skew, now: time.Now})
 	if err != nil {
 		return nil, fmt.Errorf("credential_acquisition: %w", err)
 	}
-	vault, err := newVaultClient(c)
+	vault, err := newSecretVault(c)
 	if err != nil {
 		return nil, fmt.Errorf("credential_acquisition: %w", err)
 	}
@@ -71,8 +62,15 @@ func New(c *Config, log logrus.FieldLogger) (*Acquirer, error) {
 			return nil, fmt.Errorf("credential_acquisition: platform_rule_path: %w", err)
 		}
 	}
-	a := newAcquirer(log, policies, c.AcceptableEvidence, appraiser, ear, vault, time.Now)
+	a := newAcquirer(log, policies, c.AcceptableEvidence, verifiers, vault, time.Now)
 	a.platform = rule
+	for name, v := range verifiers {
+		log.WithFields(logrus.Fields{
+			"verifier": name,
+			"kind":     v.Kind(),
+			"provider": v.Provider(),
+		}).Info("Attested credential acquisition configured for Verifier")
+	}
 	for name, p := range policies {
 		log.WithFields(logrus.Fields{
 			"target":    name,
@@ -83,14 +81,13 @@ func New(c *Config, log logrus.FieldLogger) (*Acquirer, error) {
 	return a, nil
 }
 
-func newAcquirer(log logrus.FieldLogger, policies map[string]*Policy, evidence []string, appraiser *appraiser, ear *earVerifier, vault *vaultClient, now func() time.Time) *Acquirer {
+func newAcquirer(log logrus.FieldLogger, policies map[string]*Policy, evidence []string, verifiers map[string]verifierClient, vault secretVault, now func() time.Time) *Acquirer {
 	return &Acquirer{
 		log:       log,
 		policies:  policies,
 		evidence:  evidence,
 		sessions:  newSessions(now),
-		appraiser: appraiser,
-		ear:       ear,
+		verifiers: verifiers,
 		vault:     vault,
 	}
 }
@@ -157,7 +154,7 @@ func (a *Acquirer) Initiate(ctx context.Context, in Initiation) (*InitiationResu
 		if a.vault == nil {
 			return nil, status.Error(codes.Unavailable, "no Secret Vault is configured")
 		}
-		vi, handle, err := a.vault.initiate(ctx, in.Target, in.CredentialType, in.CredentialHint)
+		vi, handle, err := a.vault.Initiate(ctx, in.Target, in.CredentialType, in.CredentialHint)
 		if err != nil {
 			return nil, vaultError(err)
 		}
@@ -209,7 +206,7 @@ type Enrollment struct {
 type EnrollmentResult struct {
 	CSR         *x509.CertificateRequest
 	Verifier    string
-	Submod      string
+	Family      string
 	Measurement []byte
 	IssuedAt    time.Time
 	// Waived is what the platform rule admitted the Attestation Results
@@ -252,7 +249,7 @@ func (a *Acquirer) Enroll(ctx context.Context, in Enrollment) (*EnrollmentResult
 	return &EnrollmentResult{
 		CSR:         csr,
 		Verifier:    res.Verifier,
-		Submod:      res.Submod,
+		Family:      res.Family,
 		Measurement: res.Measurement,
 		IssuedAt:    res.IssuedAt,
 		Waived:      res.waived,
@@ -313,10 +310,12 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 		// The Server asks the Verifier that the policy names and forwards the
 		// Attestation Results; the Secret Vault verifies them under the keys it holds.
 		bv := BindingValue(in.FreshnessElement, in.Target, in.CEKPub)
-		ear, _, err := a.appraiser.appraise(ctx, in.Evidence, profile, bv, p.Verifiers)
-		switch {
-		case errors.Is(err, ErrNoVerifier):
+		v, err := route(a.verifiers, in.Evidence, p.Verifiers)
+		if err != nil {
 			return nil, status.Errorf(codes.PermissionDenied, "%v", err)
+		}
+		results, err := v.Appraise(ctx, in.Evidence, profile, bv)
+		switch {
 		case errors.Is(err, ErrVerifierUnavailable):
 			return nil, status.Errorf(codes.Unavailable, "%v", err)
 		case err != nil:
@@ -327,12 +326,12 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 		if err := p.servesCredentialType(in.CredentialType); err != nil {
 			return nil, err
 		}
-		retrieval.EAR = ear
+		retrieval.EAR = results
 	default:
 		retrieval.Evidence = base64.RawURLEncoding.EncodeToString(in.Evidence)
 		retrieval.Profile = profile
 	}
-	container, err := a.vault.retrieve(ctx, retrieval)
+	container, err := a.vault.Retrieve(ctx, retrieval)
 	if err != nil {
 		return nil, vaultError(err)
 	}
@@ -426,19 +425,22 @@ func parseCSR(der []byte, acceptable []string) (*x509.CertificateRequest, error)
 }
 
 // appraise sends the Evidence to the Verifier that the policy names for its
-// provider, verifies the Attestation Results against the binding value, and
-// applies the platform rules per the policy.
-func (a *Acquirer) appraise(ctx context.Context, p *Policy, evidence []byte, profile string, bindingValue []byte) (*earResult, error) {
-	ear, name, err := a.appraiser.appraise(ctx, evidence, profile, bindingValue, p.Verifiers)
-	switch {
-	case errors.Is(err, ErrNoVerifier):
+// provider, has that Verifier verify its Attestation Results against the
+// binding value, and applies the platform rule.
+func (a *Acquirer) appraise(ctx context.Context, p *Policy, evidence []byte, profile string, bindingValue []byte) (*attestationResults, error) {
+	v, err := route(a.verifiers, evidence, p.Verifiers)
+	if err != nil {
 		return nil, status.Errorf(codes.PermissionDenied, "%v", err)
+	}
+	results, err := v.Appraise(ctx, evidence, profile, bindingValue)
+	switch {
 	case errors.Is(err, ErrVerifierUnavailable):
 		return nil, status.Errorf(codes.Unavailable, "%v", err)
 	case err != nil:
 		return nil, status.Errorf(codes.PermissionDenied, "remote attestation failed: %v", err)
 	}
-	res, err := a.ear.verify(ear, p.Verifiers, bindingValue)
+	name := v.Name()
+	res, err := v.Verify(results, bindingValue)
 	if err != nil {
 		a.log.WithError(err).WithField("verifier", name).Warn("Attestation Results refused")
 		return nil, status.Errorf(codes.PermissionDenied, "remote attestation failed: %v", err)

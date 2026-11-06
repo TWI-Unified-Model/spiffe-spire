@@ -73,13 +73,13 @@ func recordedRule(t *testing.T) *PlatformRule {
 	return platformRuleOf(t, recordedSNPRule(), recordedTDXRule())
 }
 
-func snpResult(h snpHost) *earResult {
+func snpResult(h snpHost) *attestationResults {
 	chip := h.chipID
 	class := classByChip
 	if h.byCSP {
 		class = classByCSP
 	}
-	return &earResult{Submod: "SEVSNP", Measurement: h.measurement, SNP: &snpClaims{
+	return &attestationResults{Family: familySEVSNP, Measurement: h.measurement, SNP: &snpClaims{
 		class: class, measurement: h.measurement, policy: h.policy, platformInfo: h.platformInfo,
 		reportedTCB: h.reportedTCB, committedTCB: h.committedTCB, hasCPUID: !h.noCPUID, family: h.family, model: h.model,
 		chipID: chip, launchMitVector: h.launchMit, currentMitVector: h.currentMit, hasMitVectors: !h.noMitVectors,
@@ -142,10 +142,10 @@ func TestPlatformRuleSEVSNP(t *testing.T) {
 	t.Run("no entry for the family", func(t *testing.T) {
 		_, err := platformRuleOf(t, nil, recordedTDXRule()).Check(snpResult(gcpMilan()))
 		require.ErrorIs(t, err, ErrPlatform)
-		require.ErrorContains(t, err, `no platform rule for submodule "SEVSNP"`)
+		require.ErrorContains(t, err, `no platform rule for family "sevsnp"`)
 	})
 	t.Run("no claims", func(t *testing.T) {
-		_, err := rule.Check(&earResult{Submod: "SEVSNP"})
+		_, err := rule.Check(&attestationResults{Family: familySEVSNP})
 		require.ErrorContains(t, err, "no SEV-SNP claims")
 	})
 }
@@ -160,7 +160,7 @@ func repeatHex(s string, n int) string {
 
 func TestPlatformRuleTDX(t *testing.T) {
 	rule := recordedRule(t)
-	ok := &earResult{Submod: "TDX", TDX: map[string]string{"td_attributes": "0000000010000000"}}
+	ok := &attestationResults{Family: familyTDX, TDX: map[string]string{"td_attributes": "0000000010000000"}}
 	_, err := rule.Check(ok)
 	require.NoError(t, err)
 
@@ -174,15 +174,15 @@ func TestPlatformRuleTDX(t *testing.T) {
 		{name: "not hex", attr: "zz", err: "TD ATTRIBUTES"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := rule.Check(&earResult{Submod: "TDX", TDX: map[string]string{"td_attributes": tt.attr}})
+			_, err := rule.Check(&attestationResults{Family: familyTDX, TDX: map[string]string{"td_attributes": tt.attr}})
 			require.ErrorIs(t, err, ErrPlatform)
 			require.ErrorContains(t, err, tt.err)
 		})
 	}
-	_, err = rule.Check(&earResult{Submod: "TDX", TDX: map[string]string{}})
+	_, err = rule.Check(&attestationResults{Family: familyTDX, TDX: map[string]string{}})
 	require.ErrorContains(t, err, "annotated no TD ATTRIBUTES")
-	_, err = rule.Check(&earResult{Submod: "OTHER"})
-	require.ErrorContains(t, err, `no platform rule for submodule "OTHER"`)
+	_, err = rule.Check(&attestationResults{Family: "other"})
+	require.ErrorContains(t, err, `no platform rule for family "other"`)
 }
 
 func TestPlatformRuleLoadAndValidate(t *testing.T) {
@@ -192,11 +192,11 @@ func TestPlatformRuleLoadAndValidate(t *testing.T) {
 	require.NoError(t, os.WriteFile(path, ruleJSON(t, recordedSNPRule(), recordedTDXRule()), 0o600))
 	rule, err := loadPlatformRule(path, modules)
 	require.NoError(t, err)
-	require.Len(t, rule.bySubmodule, 2)
-	snp, ok := rule.bySubmodule["SEVSNP"].(*SNPRule)
+	require.Len(t, rule.byFamily, 2)
+	snp, ok := rule.byFamily[familySEVSNP].(*SNPRule)
 	require.True(t, ok)
 	require.Equal(t, recordedSNPRule().TCBFloors, snp.TCBFloors)
-	require.Equal(t, recordedTDXRule(), rule.bySubmodule["TDX"])
+	require.Equal(t, recordedTDXRule(), rule.byFamily[familyTDX])
 
 	for _, tt := range []struct {
 		name   string
@@ -236,7 +236,7 @@ func TestPlatformRuleLoadAndValidate(t *testing.T) {
 		rule, err := parsePlatformRule([]byte(`{"sevsnp": null, "tdx": {"td_attributes_refused": "0x0"}}`), modules)
 		require.NoError(t, err)
 		_, err = rule.Check(snpResult(gcpMilan()))
-		require.ErrorContains(t, err, `no platform rule for submodule "SEVSNP"`)
+		require.ErrorContains(t, err, `no platform rule for family "sevsnp"`)
 	})
 	t.Run("not JSON", func(t *testing.T) {
 		_, err := parsePlatformRule([]byte(`{`), modules)

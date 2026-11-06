@@ -179,7 +179,7 @@ func (s *Service) EnrollCredential(ctx context.Context, req *credentialacquisiti
 		telemetry.SPIFFEID:  spiffeID.String(),
 		telemetry.ExpiresAt: x509Svid[0].NotAfter.Unix(),
 		"verifier":          result.Verifier,
-		"submod":            result.Submod,
+		"family":            result.Family,
 		"measurement":       hex.EncodeToString(result.Measurement),
 		"waived":            strings.Join(result.Waived, "; "),
 	})

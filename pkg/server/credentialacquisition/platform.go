@@ -20,6 +20,13 @@ import (
 // reason follows the error.
 var ErrPlatform = errors.New("refused by the platform rule")
 
+// The platform families, as the platform rule and the Attestation Results
+// name them.
+const (
+	familySEVSNP = "sevsnp"
+	familyTDX    = "tdx"
+)
+
 // PlatformRule is the rule of the Server on the platform: the machine the
 // Workload runs on, as verified, affirming Attestation Results describe it.
 // "Affirming" says the Evidence matched the reference values of the Verifier;
@@ -28,20 +35,19 @@ var ErrPlatform = errors.New("refused by the platform rule")
 // keyed by the name of the module for the family: sevsnp, tdx. The module
 // parses, validates and applies the entry.
 type PlatformRule struct {
-	bySubmodule map[string]familyRule
+	byFamily map[string]familyRule
 }
 
 // A platformModule is the plug-in of the Server for one platform family, the
 // counterpart on the Server side of the platform plug-in of the Attester. It
-// names the EAR submodule the Verifier annotates for the family, and parses
-// and validates the entry of the family in the platform rule into the rule it
-// applies. A new family, CCA for example, is a new module in platformModules;
-// the rest of the Server does not change.
+// parses and validates the entry of the family in the platform rule into the
+// rule it applies to the Attestation Results of the family. A new family, CCA
+// for example, is a new module in platformModules; the rest of the Server does
+// not change.
 type platformModule interface {
-	// Family is the key of the family in the platform rule file.
+	// Family is the family: the key of its entry in the platform rule file,
+	// and the name verified Attestation Results carry.
 	Family() string
-	// Submodule is the EAR submodule the Verifier annotates for the family.
-	Submodule() string
 	// ParseRule parses and validates the entry of the family.
 	ParseRule(raw json.RawMessage) (familyRule, error)
 }
@@ -51,7 +57,7 @@ type familyRule interface {
 	// Check applies the rule to verified Attestation Results of the family.
 	// When it admits them, it returns what it admitted them without: one
 	// line per waiver applied, naming it and what it waived.
-	Check(res *earResult) ([]string, error)
+	Check(res *attestationResults) ([]string, error)
 }
 
 // platformModules builds the modules the configuration describes: SEV-SNP
@@ -81,7 +87,7 @@ func parsePlatformRule(raw []byte, modules []platformModule) (*PlatformRule, err
 	if err := json.Unmarshal(raw, &entries); err != nil {
 		return nil, fmt.Errorf("platform rule: %w", err)
 	}
-	p := &PlatformRule{bySubmodule: make(map[string]familyRule, len(entries))}
+	p := &PlatformRule{byFamily: make(map[string]familyRule, len(entries))}
 	for family, entry := range entries {
 		if bytes.Equal(bytes.TrimSpace(entry), []byte("null")) {
 			continue
@@ -94,17 +100,17 @@ func parsePlatformRule(raw []byte, modules []platformModule) (*PlatformRule, err
 		if err != nil {
 			return nil, err
 		}
-		p.bySubmodule[modules[i].Submodule()] = rule
+		p.byFamily[family] = rule
 	}
 	return p, nil
 }
 
 // Check hands verified Attestation Results to the rule for their family. A
 // family the rule has no entry for is refused, not passed.
-func (p *PlatformRule) Check(res *earResult) ([]string, error) {
-	rule, ok := p.bySubmodule[res.Submod]
+func (p *PlatformRule) Check(res *attestationResults) ([]string, error) {
+	rule, ok := p.byFamily[res.Family]
 	if !ok {
-		return nil, fmt.Errorf("%w: no platform rule for submodule %q", ErrPlatform, res.Submod)
+		return nil, fmt.Errorf("%w: no platform rule for family %q", ErrPlatform, res.Family)
 	}
 	return rule.Check(res)
 }
@@ -118,8 +124,8 @@ func decodeEntry(raw json.RawMessage, v any) error {
 }
 
 // snpModule is the module for SEV-SNP. The claims of the family are the
-// fields of the attestation report the Verifier annotates under the SEVSNP
-// submodule. Reading them needs the product data of AMD: which product line a
+// fields of the attestation report the Verifier annotated. Reading them needs
+// the product data of AMD: which product line a
 // CPUID family and extended model names, and where each component sits in
 // TCB_VERSION. That data grows with every product line AMD ships, so it is not
 // written into the code: it is read from a JSON file under version control,
@@ -127,8 +133,7 @@ func decodeEntry(raw json.RawMessage, v any) error {
 // sevsnp_products_path names.
 type snpModule struct{ products *snpProductData }
 
-func (*snpModule) Family() string    { return "sevsnp" }
-func (*snpModule) Submodule() string { return "SEVSNP" }
+func (*snpModule) Family() string { return familySEVSNP }
 
 func (m *snpModule) ParseRule(raw json.RawMessage) (familyRule, error) {
 	r := &SNPRule{products: m.products}
@@ -371,7 +376,7 @@ func bitsOf(m map[string]string) ([]int, error) {
 }
 
 // Check applies the entry to the fields of the report the Verifier annotated.
-func (s *SNPRule) Check(res *earResult) ([]string, error) {
+func (s *SNPRule) Check(res *attestationResults) ([]string, error) {
 	if res.SNP == nil {
 		if res.SNPErr != nil {
 			return nil, fmt.Errorf("%w: no SEV-SNP claims in the Attestation Results: %w", ErrPlatform, res.SNPErr)
@@ -480,11 +485,10 @@ func (s *SNPRule) check(c *snpClaims) (waived []string, err error) {
 }
 
 // tdxModule is the module for TDX. The claims of the family are the TD
-// ATTRIBUTES the Verifier annotates under the TDX submodule.
+// ATTRIBUTES the Verifier annotated.
 type tdxModule struct{}
 
-func (tdxModule) Family() string    { return "tdx" }
-func (tdxModule) Submodule() string { return "TDX" }
+func (tdxModule) Family() string { return familyTDX }
 
 func (tdxModule) ParseRule(raw json.RawMessage) (familyRule, error) {
 	var r TDXRule
@@ -517,7 +521,7 @@ func parseMask(s string) (uint64, error) {
 }
 
 // Check applies the entry to the TD ATTRIBUTES.
-func (t *TDXRule) Check(res *earResult) ([]string, error) {
+func (t *TDXRule) Check(res *attestationResults) ([]string, error) {
 	return nil, t.check(res.TDX)
 }
 

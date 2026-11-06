@@ -27,6 +27,7 @@ server {
             client_cert_path = "/certs/server.crt"
             client_key_path = "/certs/server.key"
             verifier "veraison" {
+                kind = "veraison"
                 url = "https://localhost:8443"
                 ca_path = "/certs/veraison-ca.crt"
                 ear_key_path = "/keys/veraison.ear.jwk"
@@ -43,6 +44,7 @@ server {
                 measurements = ["a0a1a2"]
             }
             secret_vault {
+                kind = "json"
                 url = "https://localhost:9102"
                 ca_path = "/certs/root.crt"
                 client_cert_path = "/certs/conduit.crt"
@@ -72,7 +74,7 @@ plugins {
 	require.Equal(t, "/certs/server.crt", ca.ClientCertPath)
 	require.Len(t, ca.Verifier, 1)
 	require.Equal(t, &credentialacquisition.VerifierConfig{
-		URL: "https://localhost:8443", CAPath: "/certs/veraison-ca.crt", EARKeyPath: "/keys/veraison.ear.jwk",
+		Kind: "veraison", URL: "https://localhost:8443", CAPath: "/certs/veraison-ca.crt", EARKeyPath: "/keys/veraison.ear.jwk",
 		Provider: "sev_guest", Submods: []string{"SEVSNP"},
 	}, ca.Verifier["veraison"])
 	require.Len(t, ca.Target, 1)
@@ -80,7 +82,7 @@ plugins {
 		Mode: "enroll", CredentialTypes: []string{"x509"}, FreshnessKind: "present-nonce", ExpiresIn: "5m",
 		Verifiers: []string{"veraison"}, AcceptableCSK: []string{"ecdsa-p256-sha256"}, Measurements: []string{"a0a1a2"},
 	}, ca.Target["spiffe://example.org"])
-	require.Equal(t, &credentialacquisition.SecretVaultConfig{URL: "https://localhost:9102", CAPath: "/certs/root.crt",
+	require.Equal(t, &credentialacquisition.SecretVaultConfig{Kind: "json", URL: "https://localhost:9102", CAPath: "/certs/root.crt",
 		ClientCertPath: "/certs/conduit.crt", ClientKeyPath: "/certs/conduit.key"}, ca.SecretVault)
 	require.Equal(t, "/rules/platform.json", ca.PlatformRulePath)
 	require.Equal(t, "/rules/sevsnp-products.json", ca.SEVSNPProductsPath)

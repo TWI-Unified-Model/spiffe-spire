@@ -1,68 +1,26 @@
 package credentialacquisition
 
 import (
-	"bytes"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/x509"
-	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"os"
-	"slices"
-	"strings"
-	"time"
 
 	"github.com/go-jose/go-jose/v4"
 )
 
 // Refusals of Attestation Results.
 var (
-	ErrEARSignature     = errors.New("the Attestation Results are not signed by a Verifier specified by the policy for the Target")
+	ErrEARSignature     = errors.New("the Attestation Results are not signed by the key provisioned for the Verifier that returned them")
+	ErrEARProfile       = errors.New("the Attestation Results name a profile that is not the one the kind of the Verifier issues")
 	ErrEAROutsideWindow = errors.New("the Attestation Results were issued outside the accepted time window, too long ago or in the future")
 	ErrEARNonce         = errors.New("the Attestation Results report a nonce that is not the binding value")
 	ErrEARNotAffirming  = errors.New("the Verifier did not affirm the Evidence")
 	ErrEARMalformed     = errors.New("the Attestation Results are malformed")
 )
-
-// earKey is the EAR signing key of a Verifier, provisioned, and the submodules
-// the Verifier speaks for.
-type earKey struct {
-	name    string
-	key     *ecdsa.PublicKey
-	submods []string
-}
-
-// earVerifier verifies the Attestation Results a Veraison Verifier returns:
-// an EAR (RFC 9711 EAT in a JWT signed ES256) that must be signed by the key
-// provisioned for a Verifier specified by the policy for the Target, not be
-// expired (issued within the accepted window), carry the binding value as its
-// eat_nonce, and be affirming for the submodule of the scheme of the Verifier.
-type earVerifier struct {
-	keys   []earKey
-	maxAge time.Duration
-	skew   time.Duration
-	now    func() time.Time
-}
-
-// earResult is what the Server keeps from verified Attestation Results.
-type earResult struct {
-	Verifier    string
-	Submod      string
-	IssuedAt    time.Time
-	Measurement []byte // the launch measurement the Verifier annotated: MEASUREMENT for SEV-SNP, MRTD for TDX
-	Raw         string // the EAR as received, for the record
-	// SNP holds the SEV-SNP report fields the Verifier annotated (submodule
-	// SEVSNP), or nil with SNPErr saying why; TDX holds the annotations of the
-	// TDX Verifier (submodule TDX).
-	SNP    *snpClaims
-	SNPErr error
-	TDX    map[string]string
-	waived []string // what the platform rule admitted the results without
-}
 
 // loadEARKey reads the EAR verification key of a Verifier: an EC P-256 public JWK,
 // or a PEM public key. The key is provisioned by the operator, never fetched
@@ -99,73 +57,4 @@ func parseEARKey(raw []byte) (*ecdsa.PublicKey, error) {
 		return nil, errors.New("not an EC P-256 public JWK")
 	}
 	return pub, nil
-}
-
-// verify checks the EAR against the keys of the named Verifiers and that it
-// contains a nonce that matches expectedNonce.
-func (v *earVerifier) verify(jws string, verifiers []string, expectedNonce []byte) (*earResult, error) {
-	sig, err := jose.ParseSigned(jws, []jose.SignatureAlgorithm{jose.ES256})
-	if err != nil {
-		return nil, fmt.Errorf("%w: %w", ErrEARMalformed, err)
-	}
-	var payload []byte
-	var signer *earKey
-	for i := range v.keys {
-		k := &v.keys[i]
-		if !slices.Contains(verifiers, k.name) {
-			continue
-		}
-		if payload, err = sig.Verify(k.key); err == nil {
-			signer = k
-			break
-		}
-	}
-	if signer == nil {
-		return nil, ErrEARSignature
-	}
-
-	var claims struct {
-		Nonce   string `json:"eat_nonce"`
-		IAT     int64  `json:"iat"`
-		Submods map[string]struct {
-			Status   string          `json:"ear.status"`
-			Evidence json.RawMessage `json:"ear.veraison.annotated-evidence"`
-		} `json:"submods"`
-	}
-	if err := json.Unmarshal(payload, &claims); err != nil {
-		return nil, fmt.Errorf("%w: claims: %w", ErrEARMalformed, err)
-	}
-	now := v.now()
-	iat := time.Unix(claims.IAT, 0)
-	if claims.IAT == 0 || iat.Before(now.Add(-v.maxAge)) || iat.After(now.Add(v.skew)) {
-		return nil, fmt.Errorf("%w: iat %s", ErrEAROutsideWindow, iat.UTC().Format(time.RFC3339))
-	}
-	nonce, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(claims.Nonce, "="))
-	if err != nil || !bytes.Equal(nonce, expectedNonce) {
-		return nil, ErrEARNonce
-	}
-	for _, name := range signer.submods {
-		sub, ok := claims.Submods[name]
-		if !ok {
-			continue
-		}
-		if sub.Status != "affirming" {
-			return nil, fmt.Errorf("%w: %s is %q", ErrEARNotAffirming, name, sub.Status)
-		}
-		res := &earResult{Verifier: signer.name, Submod: name, IssuedAt: iat, Raw: jws}
-		switch name {
-		case "SEVSNP":
-			res.SNP, res.SNPErr = parseSNPClaims(sub.Evidence)
-			if res.SNP != nil {
-				res.Measurement = res.SNP.measurement
-			}
-		case "TDX":
-			_ = json.Unmarshal(sub.Evidence, &res.TDX)
-			if m, err := hex.DecodeString(res.TDX["mrtd"]); err == nil && len(m) == 48 {
-				res.Measurement = m
-			}
-		}
-		return res, nil
-	}
-	return nil, fmt.Errorf("%w: no submodule the signing Verifier speaks for (%v)", ErrEARNotAffirming, signer.submods)
 }

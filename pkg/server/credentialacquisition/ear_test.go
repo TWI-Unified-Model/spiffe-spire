@@ -2,105 +2,13 @@ package credentialacquisition
 
 import (
 	"crypto/x509"
-	"encoding/hex"
 	"encoding/json"
 	"encoding/pem"
 	"testing"
-	"time"
 
 	"github.com/go-jose/go-jose/v4"
 	"github.com/stretchr/testify/require"
 )
-
-func TestEARVerify(t *testing.T) {
-	now := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
-	veraisonKey := newTestKey(t)
-	otherKey := newTestKey(t)
-	nonce := []byte("the binding value, 64 octets in production...................")
-	comid := snpCoMID(t, gcpMilan())
-
-	v := &earVerifier{
-		keys: []earKey{
-			{name: "veraison", key: &veraisonKey.PublicKey, submods: []string{"SEVSNP"}},
-			{name: "other", key: &otherKey.PublicKey, submods: []string{"TDX"}},
-		},
-		maxAge: 2 * time.Minute,
-		skew:   5 * time.Second,
-		now:    func() time.Time { return now },
-	}
-
-	t.Run("affirming results signed by the Verifier of the policy are accepted", func(t *testing.T) {
-		jws := signEAR(t, veraisonKey, nonce, now.Add(-10*time.Second), "SEVSNP", "affirming", comid)
-		res, err := v.verify(jws, []string{"veraison"}, nonce)
-		require.NoError(t, err)
-		require.Equal(t, "veraison", res.Verifier)
-		require.Equal(t, "SEVSNP", res.Submod)
-		require.Equal(t, testMeasurement, res.Measurement)
-		require.NotNil(t, res.SNP)
-		require.Equal(t, uint64(0x30000), res.SNP.policy)
-		require.Equal(t, classByChip, res.SNP.class)
-		require.Equal(t, now.Add(-10*time.Second), res.IssuedAt.UTC())
-	})
-	t.Run("results of a Verifier the policy does not name are refused", func(t *testing.T) {
-		jws := signEAR(t, veraisonKey, nonce, now, "SEVSNP", "affirming", comid)
-		_, err := v.verify(jws, []string{"other"}, nonce)
-		require.ErrorIs(t, err, ErrEARSignature)
-	})
-	t.Run("results signed by an unknown key are refused", func(t *testing.T) {
-		jws := signEAR(t, newTestKey(t), nonce, now, "SEVSNP", "affirming", comid)
-		_, err := v.verify(jws, []string{"veraison"}, nonce)
-		require.ErrorIs(t, err, ErrEARSignature)
-	})
-	t.Run("stale results are refused", func(t *testing.T) {
-		jws := signEAR(t, veraisonKey, nonce, now.Add(-3*time.Minute), "SEVSNP", "affirming", comid)
-		_, err := v.verify(jws, []string{"veraison"}, nonce)
-		require.ErrorIs(t, err, ErrEAROutsideWindow)
-		jws = signEAR(t, veraisonKey, nonce, now.Add(time.Minute), "SEVSNP", "affirming", comid)
-		_, err = v.verify(jws, []string{"veraison"}, nonce)
-		require.ErrorIs(t, err, ErrEAROutsideWindow)
-	})
-	t.Run("results for another nonce are refused", func(t *testing.T) {
-		jws := signEAR(t, veraisonKey, []byte("another nonce"), now, "SEVSNP", "affirming", comid)
-		_, err := v.verify(jws, []string{"veraison"}, nonce)
-		require.ErrorIs(t, err, ErrEARNonce)
-	})
-	t.Run("results that are not affirming are refused", func(t *testing.T) {
-		jws := signEAR(t, veraisonKey, nonce, now, "SEVSNP", "contraindicated", comid)
-		_, err := v.verify(jws, []string{"veraison"}, nonce)
-		require.ErrorIs(t, err, ErrEARNotAffirming)
-	})
-	t.Run("results without the submodule of the Verifier are refused", func(t *testing.T) {
-		jws := signEAR(t, veraisonKey, nonce, now, "TDX", "affirming", comid)
-		_, err := v.verify(jws, []string{"veraison"}, nonce)
-		require.ErrorIs(t, err, ErrEARNotAffirming)
-	})
-	t.Run("a malformed token is refused", func(t *testing.T) {
-		_, err := v.verify("not.a.jws", []string{"veraison"}, nonce)
-		require.ErrorIs(t, err, ErrEARMalformed)
-	})
-	t.Run("results without an annotated measurement are accepted without one", func(t *testing.T) {
-		h := gcpMilan()
-		h.noMeasurement = true
-		jws := signEAR(t, veraisonKey, nonce, now, "SEVSNP", "affirming", snpCoMID(t, h))
-		res, err := v.verify(jws, []string{"veraison"}, nonce)
-		require.NoError(t, err)
-		require.Nil(t, res.Measurement)
-		require.Nil(t, res.SNP)
-		require.ErrorContains(t, res.SNPErr, "no launch measurement")
-	})
-	t.Run("TDX results carry the MRTD and the TD attributes", func(t *testing.T) {
-		mrtd := make([]byte, 48)
-		for i := range mrtd {
-			mrtd[i] = byte(0x10 + i)
-		}
-		jws := signEAR(t, otherKey, nonce, now, "TDX", "affirming", map[string]string{"mrtd": hex.EncodeToString(mrtd), "td_attributes": "0000000010000000"})
-		res, err := v.verify(jws, []string{"other"}, nonce)
-		require.NoError(t, err)
-		require.Equal(t, "TDX", res.Submod)
-		require.Equal(t, mrtd, res.Measurement)
-		require.Equal(t, "0000000010000000", res.TDX["td_attributes"])
-	})
-}
 
 func TestParseSNPClaims(t *testing.T) {
 	h := gcpMilan()

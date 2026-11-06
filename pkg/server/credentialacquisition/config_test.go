@@ -79,6 +79,9 @@ func TestConfigValidate(t *testing.T) {
 		}, err: `Credential Type "password" is not one of TACRA`},
 		{name: "Verifier without key", mutate: func(c *Config) { c.Verifier["veraison"].EARKeyPath = "" }, err: "ear_key_path is required"},
 		{name: "Verifier without provider", mutate: func(c *Config) { c.Verifier["veraison"].Provider = "" }, err: "provider is required"},
+		{name: "Verifier of an unknown kind", mutate: func(c *Config) { c.Verifier["veraison"].Kind = "attestify" }, err: `kind "attestify" is not one of veraison`},
+		{name: "Verifier with a submodule of no family", mutate: func(c *Config) { c.Verifier["veraison"].Submods = []string{"CCA"} }, err: `submods: "CCA" is not an EAR submodule`},
+		{name: "vault of an unknown kind", mutate: func(c *Config) { c.SecretVault = &SecretVaultConfig{Kind: "grpc", URL: "https://vault.example"} }, err: `secret_vault: kind "grpc" is not one of json`},
 		{name: "vault without url", mutate: func(c *Config) { c.SecretVault = &SecretVaultConfig{} }, err: "secret_vault: url is required"},
 		{name: "ear_max_age malformed", mutate: func(c *Config) { c.EARMaxAge = "later" }, err: "ear_max_age"},
 	} {
