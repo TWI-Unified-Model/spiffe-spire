@@ -61,7 +61,7 @@ type vaultInitiation struct {
 	Handle        string   `json:"handle,omitempty"`
 	ExpiresIn     int      `json:"expires_in,omitempty"`
 	MaxAge        int      `json:"max_age,omitempty"`
-	Mode          string   `json:"mode"`
+	Mode          Mode     `json:"mode"`
 	AcceptableCSK []string `json:"acceptable_csk,omitempty"`
 	AcceptableCEK []string `json:"acceptable_cek,omitempty"`
 }

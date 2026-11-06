@@ -331,7 +331,7 @@ func freshnessKindFromName(k string) types.FreshnessKind {
 	}
 }
 
-func modeFromName(m string) types.CredentialAcquisitionMode {
+func modeFromName(m credentialacquisition.Mode) types.CredentialAcquisitionMode {
 	switch m {
 	case credentialacquisition.ModeEnroll:
 		return types.CredentialAcquisitionMode_CREDENTIAL_ACQUISITION_MODE_ENROLL

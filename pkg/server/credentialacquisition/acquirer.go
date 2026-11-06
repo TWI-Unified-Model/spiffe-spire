@@ -104,7 +104,7 @@ type Initiation struct {
 // InitiationResult is what the Workload needs to produce its key and its
 // Evidence.
 type InitiationResult struct {
-	Mode               string
+	Mode               Mode
 	FreshnessKind      string
 	Handle             []byte
 	ExpiresIn          uint32
@@ -335,7 +335,7 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 	return container, nil
 }
 
-func (a *Acquirer) policy(target, mode string) (*Policy, error) {
+func (a *Acquirer) policy(target string, mode Mode) (*Policy, error) {
 	if target == "" {
 		return nil, status.Error(codes.InvalidArgument, "Target must be specified")
 	}

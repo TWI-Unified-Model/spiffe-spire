@@ -20,7 +20,7 @@ type session struct {
 	target         string
 	credentialType string
 	hint           string
-	mode           string
+	mode           Mode
 	entryID        string
 	agentID        string
 	expires        time.Time

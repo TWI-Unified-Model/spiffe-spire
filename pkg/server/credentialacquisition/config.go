@@ -18,10 +18,14 @@ import (
 	"time"
 )
 
+// Mode is a Credential Acquisition Mode of TACRA. The configuration spells it
+// as one of two names, which Validate checks.
+type Mode string
+
 // The Credential Acquisition Modes of TACRA.
 const (
-	ModeEnroll   = "enroll"
-	ModeRetrieve = "retrieve"
+	ModeEnroll   Mode = "enroll"
+	ModeRetrieve Mode = "retrieve"
 )
 
 // The RATS models a Target in retrieve mode is served in. In the Passport RATS
@@ -29,9 +33,12 @@ const (
 // Verifier for the Target and forwards them to the Secret Vault. In the
 // Background Check RATS model, the Server forwards the Evidence, and the Secret
 // Vault asks the Verifier itself.
+type RATSModel string
+
+// The two RATS models.
 const (
-	ModelPassport        = "passport"
-	ModelBackgroundCheck = "background-check"
+	ModelPassport        RATSModel = "passport"
+	ModelBackgroundCheck RATSModel = "background-check"
 )
 
 // The Freshness Kinds of TACRA.
@@ -98,7 +105,7 @@ type Config struct {
 // TargetConfig is the policy for one Target.
 type TargetConfig struct {
 	// Mode is enroll or retrieve.
-	Mode string `hcl:"mode"`
+	Mode Mode `hcl:"mode"`
 
 	// CredentialTypes are the Credential Types served for the Target.
 	// Enrollment serves x509 and wic.
@@ -122,7 +129,7 @@ type TargetConfig struct {
 	// RATSModel is, for a Target in retrieve mode, passport or
 	// background-check (the default): who asks the Verifier, this Server or
 	// the Secret Vault.
-	RATSModel string `hcl:"rats_model"`
+	RATSModel RATSModel `hcl:"rats_model"`
 
 	// AcceptableCSK lists the CSK algorithms the Credential Authority
 	// accepts for enrollment (default ecdsa-p256-sha256).
@@ -179,7 +186,7 @@ type SecretVaultConfig struct {
 // Policy is the parsed policy of one Target.
 type Policy struct {
 	Name                string
-	Mode                string
+	Mode                Mode
 	CredentialTypes     []string
 	FreshnessKind       string
 	ExpiresIn           time.Duration
@@ -187,7 +194,7 @@ type Policy struct {
 	AcceptableCSK       []string
 	Measurements        [][]byte
 	AllowAnyMeasurement bool
-	RATSModel           string
+	RATSModel           RATSModel
 }
 
 // Validate checks the configuration and returns the parsed policies.
