@@ -16,7 +16,7 @@ const handleSize = 32
 // session is one Initiate-Credential-Acquisition whose Handle is still valid:
 // what the second call must repeat, and the Workload and Agent it belongs to.
 type session struct {
-	kind           string
+	kind           FreshnessKind
 	target         string
 	credentialType string
 	hint           string
@@ -88,7 +88,7 @@ func (s *sessions) remember(handle []byte, ss session) {
 // while one it omitted may be named. This Server adds the registration entry
 // of the Workload and its Agent: the exchange belongs to the Workload the
 // Agent attested at initiation. A present-nonce Handle is consumed once.
-func (s *sessions) consume(handle []byte, kind, target, credentialType, hint, entryID, agentID string) (session, error) {
+func (s *sessions) consume(handle []byte, kind FreshnessKind, target, credentialType, hint, entryID, agentID string) (session, error) {
 	key := hex.EncodeToString(handle)
 	s.mu.Lock()
 	defer s.mu.Unlock()

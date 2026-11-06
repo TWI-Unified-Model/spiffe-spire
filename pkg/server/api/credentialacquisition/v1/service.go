@@ -297,7 +297,7 @@ func credentialTypeName(t types.CredentialType) string {
 	}
 }
 
-func freshnessKindName(k types.FreshnessKind) string {
+func freshnessKindName(k types.FreshnessKind) credentialacquisition.FreshnessKind {
 	switch k {
 	case types.FreshnessKind_FRESHNESS_KIND_ABSENT_NONE:
 		return credentialacquisition.FreshnessAbsentNone
@@ -314,7 +314,7 @@ func freshnessKindName(k types.FreshnessKind) string {
 	}
 }
 
-func freshnessKindFromName(k string) types.FreshnessKind {
+func freshnessKindFromName(k credentialacquisition.FreshnessKind) types.FreshnessKind {
 	switch k {
 	case credentialacquisition.FreshnessAbsentNone:
 		return types.FreshnessKind_FRESHNESS_KIND_ABSENT_NONE

@@ -41,13 +41,18 @@ const (
 	ModelBackgroundCheck RATSModel = "background-check"
 )
 
-// The Freshness Kinds of TACRA.
+// FreshnessKind is a Freshness Kind of TACRA: how the Freshness Element of an
+// exchange is produced, and by whom. The configuration and the API spell it
+// as one of five names.
+type FreshnessKind string
+
+// The Freshness Kinds of TACRA. This Server issues present-nonce Handles.
 const (
-	FreshnessPresentNonce    = "present-nonce"
-	FreshnessPresentEpoch    = "present-epoch"
-	FreshnessAbsentTimestamp = "absent-timestamp"
-	FreshnessAbsentEpoch     = "absent-epoch"
-	FreshnessAbsentNone      = "absent-none"
+	FreshnessPresentNonce    FreshnessKind = "present-nonce"
+	FreshnessPresentEpoch    FreshnessKind = "present-epoch"
+	FreshnessAbsentTimestamp FreshnessKind = "absent-timestamp"
+	FreshnessAbsentEpoch     FreshnessKind = "absent-epoch"
+	FreshnessAbsentNone      FreshnessKind = "absent-none"
 )
 
 // The Credential Types of TACRA.
@@ -121,7 +126,7 @@ type TargetConfig struct {
 	// FreshnessKind is the Freshness Kind of the exchanges of the Target. This
 	// Server issues present-nonce Handles; a Target in retrieve mode uses
 	// the kind its Secret Vault answers.
-	FreshnessKind string `hcl:"freshness_kind"`
+	FreshnessKind FreshnessKind `hcl:"freshness_kind"`
 
 	// ExpiresIn is the lifetime of a Freshness Handle: a duration with its unit,
 	// for example 5m or 300s; the default is 5m, and TACRA recommends at least
@@ -197,7 +202,7 @@ type Policy struct {
 	Name                string
 	Mode                Mode
 	CredentialTypes     []string
-	FreshnessKind       string
+	FreshnessKind       FreshnessKind
 	ExpiresIn           time.Duration
 	Verifiers           []string
 	AcceptableCSK       []string

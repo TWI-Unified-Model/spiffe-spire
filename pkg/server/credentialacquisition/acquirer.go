@@ -109,7 +109,7 @@ type Initiation struct {
 // Evidence.
 type InitiationResult struct {
 	Mode               Mode
-	FreshnessKind      string
+	FreshnessKind      FreshnessKind
 	Handle             []byte
 	ExpiresIn          uint32
 	MaxAge             uint32
@@ -195,7 +195,7 @@ type Enrollment struct {
 	Target           string
 	CredentialType   string
 	CredentialHint   string
-	FreshnessKind    string
+	FreshnessKind    FreshnessKind
 	FreshnessElement []byte
 	CSR              []byte
 	Evidence         []byte
@@ -266,7 +266,7 @@ type Retrieval struct {
 	Target           string
 	CredentialType   string
 	CredentialHint   string
-	FreshnessKind    string
+	FreshnessKind    FreshnessKind
 	FreshnessElement []byte
 	CEKPub           []byte
 	Evidence         []byte
@@ -382,7 +382,7 @@ func checkBinding(method, hash string) error {
 	return nil
 }
 
-func (a *Acquirer) consumeSession(kind string, element []byte, target, credentialType, hint, entryID, agentID string) error {
+func (a *Acquirer) consumeSession(kind FreshnessKind, element []byte, target, credentialType, hint, entryID, agentID string) error {
 	if kind != FreshnessPresentNonce {
 		return status.Errorf(codes.InvalidArgument, "Freshness Kind %q differs from %s, the kind named at initiation", kind, FreshnessPresentNonce)
 	}

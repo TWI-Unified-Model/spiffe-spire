@@ -57,27 +57,27 @@ func newVaultClient(c *Config) (*vaultClient, error) {
 // vaultInitiation is what the Secret Vault answers at initiation, a byte
 // string as unpadded base64url.
 type vaultInitiation struct {
-	FreshnessKind string   `json:"freshness_kind"`
-	Handle        string   `json:"handle,omitempty"`
-	ExpiresIn     int      `json:"expires_in,omitempty"`
-	MaxAge        int      `json:"max_age,omitempty"`
-	Mode          Mode     `json:"mode"`
-	AcceptableCSK []string `json:"acceptable_csk,omitempty"`
-	AcceptableCEK []string `json:"acceptable_cek,omitempty"`
+	FreshnessKind FreshnessKind `json:"freshness_kind"`
+	Handle        string        `json:"handle,omitempty"`
+	ExpiresIn     int           `json:"expires_in,omitempty"`
+	MaxAge        int           `json:"max_age,omitempty"`
+	Mode          Mode          `json:"mode"`
+	AcceptableCSK []string      `json:"acceptable_csk,omitempty"`
+	AcceptableCEK []string      `json:"acceptable_cek,omitempty"`
 }
 
 // vaultRetrieval is the attest-retrieve request as the conduit forwards it
 // to the Secret Vault: the second leg, the Evidence and CEKpub.
 type vaultRetrieval struct {
-	FreshnessKind  string `json:"freshness_kind"`
-	Target         string `json:"target"`
-	CredentialType string `json:"credential_type,omitempty"`
-	Handle         string `json:"handle,omitempty"`
-	CredentialHint string `json:"credential_hint,omitempty"`
-	Evidence       string `json:"evidence,omitempty"` // Background Check: the Evidence of the Attester, as it sent it
-	Profile        string `json:"profile,omitempty"`  // Background Check: the media type of the Evidence
-	EAR            string `json:"ear,omitempty"`      // Passport: the Attestation Results the Server obtained
-	CEKPub         string `json:"cek_pub"`
+	FreshnessKind  FreshnessKind `json:"freshness_kind"`
+	Target         string        `json:"target"`
+	CredentialType string        `json:"credential_type,omitempty"`
+	Handle         string        `json:"handle,omitempty"`
+	CredentialHint string        `json:"credential_hint,omitempty"`
+	Evidence       string        `json:"evidence,omitempty"` // Background Check: the Evidence of the Attester, as it sent it
+	Profile        string        `json:"profile,omitempty"`  // Background Check: the media type of the Evidence
+	EAR            string        `json:"ear,omitempty"`      // Passport: the Attestation Results the Server obtained
+	CEKPub         string        `json:"cek_pub"`
 }
 
 func (v *vaultClient) initiate(ctx context.Context, target, credentialType, hint string) (*vaultInitiation, []byte, error) {
