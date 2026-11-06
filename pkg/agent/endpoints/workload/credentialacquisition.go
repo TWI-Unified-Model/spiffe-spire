@@ -18,8 +18,8 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-// The attested credential acquisition calls of the Workload API, the
-// Credential Acquisition API of draft-novak-rats-tacra (TACRA). The Agent is
+// The Workload API calls for attested credential acquisition: the Credential
+// Acquisition API of draft-novak-rats-tacra (TACRA). The Agent is
 // the Credential Acquisition System Client: it attests the calling Workload
 // as it does for FetchX509SVID, picks the registration entry whose identity
 // the Workload acquires, and forwards the call to the Server, which issues

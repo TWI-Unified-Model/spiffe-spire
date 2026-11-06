@@ -83,7 +83,7 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 		assertConnectionIsNotNil(t, client)
 	})
 
-	t.Run("refusal carries the status of the Server and releases the connection", func(t *testing.T) {
+	t.Run("a refusal carries the status returned by the Server and releases the connection", func(t *testing.T) {
 		tc.credentialAcquisitionServer.err = status.Error(codes.PermissionDenied, "unsupported Target")
 
 		resp, err := client.InitiateCredentialAcquisition(context.Background(), req)
@@ -125,7 +125,7 @@ func TestEnrollCredential(t *testing.T) {
 		assertConnectionIsNotNil(t, client)
 	})
 
-	t.Run("refusal carries the status of the Server and releases the connection", func(t *testing.T) {
+	t.Run("a refusal carries the status returned by the Server and releases the connection", func(t *testing.T) {
 		tc.credentialAcquisitionServer.err = status.Error(codes.InvalidArgument, "binding mismatch")
 
 		resp, err := client.EnrollCredential(context.Background(), req)
@@ -162,7 +162,7 @@ func TestRetrieveCredential(t *testing.T) {
 		assertConnectionIsNotNil(t, client)
 	})
 
-	t.Run("refusal carries the status of the Server and releases the connection", func(t *testing.T) {
+	t.Run("a refusal carries the status returned by the Server and releases the connection", func(t *testing.T) {
 		tc.credentialAcquisitionServer.err = status.Error(codes.PermissionDenied, "unsupported Credential Type")
 
 		resp, err := client.RetrieveCredential(context.Background(), req)

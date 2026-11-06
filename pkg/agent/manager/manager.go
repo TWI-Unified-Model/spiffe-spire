@@ -110,7 +110,7 @@ type Manager interface {
 	FetchJWTSVID(ctx context.Context, entry *common.RegistrationEntry, audience []string) (*client.JWTSVID, error)
 
 	// InitiateCredentialAcquisition, EnrollCredential and RetrieveCredential
-	// forward the attested credential acquisition calls of the Workload API
+	// forward the Workload API calls for attested credential acquisition
 	// (TACRA) for the registration entry to the Server, which issues the
 	// Freshness Handle, appraises the Evidence and mints or releases the
 	// credential. The entry names the identity the Workload is entitled to.

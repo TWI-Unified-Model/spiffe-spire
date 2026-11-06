@@ -273,7 +273,7 @@ func writeCanonical(buf *bytes.Buffer, v any) error {
 }
 
 // writeString writes s as the JSON Canonicalization Scheme does (RFC 8785,
-// Section 3.2.2.2): only the quotation mark, the reverse solidus and the
+// Section 3.2.2.2): only the quotation mark, the backslash and the
 // control characters are escaped, and everything else is written as it is.
 func writeString(buf *bytes.Buffer, s string) {
 	buf.WriteByte('"')

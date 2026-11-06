@@ -85,9 +85,9 @@ func (s *sessions) remember(handle []byte, ss session) {
 }
 
 // consume correlates the second call with the initiation that returned its
-// Handle: the call must repeat the Target and the Freshness Kind of its
-// initiation, and a Credential Type or Credential Hint the initiation named,
-// while one it omitted may be named. This Server adds the registration entry
+// Handle, as TACRA requires: the call must repeat the Target and the Freshness
+// Kind of its initiation, and a Credential Type or Credential Hint the
+// initiation named, while one it omitted may be named. This Server adds the registration entry
 // of the Workload and its Agent: the exchange belongs to the Workload the
 // Agent attested at initiation. A present-nonce Handle is accepted once: the
 // second call that matches consumes the session, the Server forgets it, and a

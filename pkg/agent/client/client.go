@@ -121,9 +121,9 @@ type Client interface {
 	PostStatus(ctx context.Context, agentVersion string) error
 
 	// InitiateCredentialAcquisition, EnrollCredential and RetrieveCredential
-	// forward the attested credential acquisition calls of the Workload API
+	// forward the Workload API calls for attested credential acquisition
 	// (TACRA) to the Server, for the registration entry the request names.
-	// The error of a refused call carries the gRPC status of the Server.
+	// The error of a refused call carries the gRPC status returned by the Server.
 	InitiateCredentialAcquisition(ctx context.Context, req *credentialacquisitionv1.InitiateCredentialAcquisitionRequest) (*credentialacquisitionv1.InitiateCredentialAcquisitionResponse, error)
 	EnrollCredential(ctx context.Context, req *credentialacquisitionv1.EnrollCredentialRequest) (*credentialacquisitionv1.EnrollCredentialResponse, error)
 	RetrieveCredential(ctx context.Context, req *credentialacquisitionv1.RetrieveCredentialRequest) (*credentialacquisitionv1.RetrieveCredentialResponse, error)
