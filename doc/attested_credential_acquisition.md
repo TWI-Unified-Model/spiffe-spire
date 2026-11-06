@@ -299,19 +299,23 @@ and the reason it gives.
 `support/attested-workload` is a Workload for the proof of concept: it runs in
 an AMD SEV-SNP or Intel TDX guest, generates the key, produces the Evidence
 through the Linux configfs-tsm interface with the binding value as the report
-data, and runs the three calls over the Workload API socket of the Agent. In
+data, and runs the three calls over the Workload API socket of the Agent. The
+Platform Plug-In it does this with, the interface and the SEV-SNP and TDX
+back-ends, is the `platform` module of the TACRA repository,
+`github.com/TWI-Unified-Model/tacra`, which the Workload imports; SPIRE holds
+no copy of it. In
 Enrollment it writes the X509-SVID, its key and the bundle; in Retrieval it
 opens the container with its CEK, checks the associated data and, when a key is
 given with `-vaultOriginKey`, the origin signature of the Secret Vault, and
 writes the credential it received. `result.json` records the exchange.
 
-For SEV-SNP the Workload completes the certificate table of a host that leaves
+For SEV-SNP the plug-in completes the certificate table of a host that leaves
 out the ASK or ASVK and the ARK of AMD, as AWS does. Those chains grow with
-every product line, so they are PEM files under version control,
-[amdchains](/support/attested-workload/platform/amdchains/) with their sources
-in its README, embedded as the copies the Workload ships; `-amdChains` names a
-directory of files in their place. A file is indexed by the subject of its
-first certificate, the issuer of the VCEK or VLEK.
+every product line, so they are PEM files under version control in that module,
+`platform/amdchains` with their sources in its README, embedded as the copies
+the plug-in ships; `-amdChains` names a directory of files in their place. A
+file is indexed by the subject of its first certificate, the issuer of the VCEK
+or VLEK.
 
 ## The shape of the proof of concept
 

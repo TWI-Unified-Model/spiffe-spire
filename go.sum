@@ -106,6 +106,8 @@ github.com/TWI-Unified-Model/spiffe-go-spiffe/v2 v2.9.1-0.20261103185101-290df1d
 github.com/TWI-Unified-Model/spiffe-go-spiffe/v2 v2.9.1-0.20261103185101-290df1d6b655/go.mod h1:w2CLWKLMTX/PPYUEUPv3ltH0RXsw5S8suwNF46w9/Aw=
 github.com/TWI-Unified-Model/spiffe-spire-api-sdk v1.2.5-0.20261103185608-6628d059ce2c h1:tm0nZom3V8hOhiHqR7aTP2JC7yJsg5f5pbYyvJCqo1k=
 github.com/TWI-Unified-Model/spiffe-spire-api-sdk v1.2.5-0.20261103185608-6628d059ce2c/go.mod h1:9hXJcMzatM1KwAtBDO3s6HccDCic++/5c2yOc5Iln8Y=
+github.com/TWI-Unified-Model/tacra/platform v0.0.0-20261106153046-417eb940ded4 h1:Mg5VIjV0/TAu6VuHzc8F+SgSD2VTHULnZYr2PERt0Hw=
+github.com/TWI-Unified-Model/tacra/platform v0.0.0-20261106153046-417eb940ded4/go.mod h1:2KKZM5H6YEDEQEfq7B2OLJuWg6iYGLcxosVkZAo0Umk=
 github.com/agnivade/levenshtein v1.2.1 h1:EHBY3UOn1gwdy/VbFwgo4cxecRznFk7fKWN1KOX7eoM=
 github.com/agnivade/levenshtein v1.2.1/go.mod h1:QVVI16kDrtSuwcpd0p1+xMC6Z/VfhtCyDIjcwga4/DU=
 github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129 h1:MzBOUgng9orim59UnfUTLRjMpd09C5uEVQ6RPGeCaVI=

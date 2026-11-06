@@ -37,6 +37,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/TWI-Unified-Model/tacra/platform"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/google/go-sev-guest/abi"
 	"github.com/spiffe/go-spiffe/v2/bundle/x509bundle"
@@ -45,7 +46,6 @@ import (
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
 	"github.com/spiffe/go-spiffe/v2/workloadapi"
 	"github.com/spiffe/spire/support/attested-workload/container"
-	"github.com/spiffe/spire/support/attested-workload/platform"
 )
 
 // The TACRA Binding, which the Workload API carries unchanged, and the CSK
