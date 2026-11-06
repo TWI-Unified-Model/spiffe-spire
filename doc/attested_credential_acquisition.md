@@ -289,5 +289,7 @@ writes the credential it received. `result.json` records the exchange.
 
 The Server issues present-nonce Handles; a Target in retrieve mode uses the
 Freshness Kind its Secret Vault answers. Enrollment mints `x509`; `wic` is named
-and not minted yet. The Server speaks to Veraison; another Verifier needs its
-own challenge-response client. The policy is a table keyed by the Target name.
+and not minted yet. The Server speaks to Veraison and reads its Attestation Results as an EAR;
+another Verifier needs its own challenge-response client, and the kind of
+Verifier is not a configuration option yet. The policy is a table keyed by the
+Target name.

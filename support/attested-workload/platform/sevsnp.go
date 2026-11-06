@@ -89,7 +89,7 @@ type tsmConfig struct {
 	client        configfsi.Client
 	clock         func() time.Time
 	localEpoch    []byte
-	completeChain bool // SEV-SNP: append AMD's ASK/ASVK and ARK when the host leaves them out
+	completeChain bool // SEV-SNP: append the ASK/ASVK and ARK of AMD when the host leaves them out
 }
 
 // TSMOption configures a configfs-tsm back-end.

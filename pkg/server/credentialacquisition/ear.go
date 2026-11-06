@@ -38,9 +38,9 @@ type earKey struct {
 
 // earVerifier verifies the Attestation Results a Veraison Verifier returns:
 // an EAR (RFC 9711 EAT in a JWT signed ES256) that must be signed by the key
-// provisioned for a Verifier specified by the policy for the Target, be recent, report the
-// binding value as its eat_nonce, and be affirming for the submodule of the
-// scheme of the Verifier.
+// provisioned for a Verifier specified by the policy for the Target, not be
+// expired (issued within the accepted window), carry the binding value as its
+// eat_nonce, and be affirming for the submodule of the scheme of the Verifier.
 type earVerifier struct {
 	keys   []earKey
 	maxAge time.Duration
@@ -102,8 +102,8 @@ func parseEARKey(raw []byte) (*ecdsa.PublicKey, error) {
 }
 
 // verify checks the EAR against the keys of the named Verifiers and that it
-// reports wantNonce.
-func (v *earVerifier) verify(jws string, verifiers []string, wantNonce []byte) (*earResult, error) {
+// contains a nonce that matches expectedNonce.
+func (v *earVerifier) verify(jws string, verifiers []string, expectedNonce []byte) (*earResult, error) {
 	sig, err := jose.ParseSigned(jws, []jose.SignatureAlgorithm{jose.ES256})
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrEARMalformed, err)
@@ -141,7 +141,7 @@ func (v *earVerifier) verify(jws string, verifiers []string, wantNonce []byte) (
 		return nil, fmt.Errorf("%w: iat %s", ErrEAROutsideWindow, iat.UTC().Format(time.RFC3339))
 	}
 	nonce, err := base64.RawURLEncoding.DecodeString(strings.TrimRight(claims.Nonce, "="))
-	if err != nil || !bytes.Equal(nonce, wantNonce) {
+	if err != nil || !bytes.Equal(nonce, expectedNonce) {
 		return nil, ErrEARNonce
 	}
 	for _, name := range signer.submods {

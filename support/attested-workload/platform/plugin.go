@@ -146,7 +146,7 @@ const (
 	EncryptionAlgorithmUnspecified  EncryptionAlgorithm = 0
 	EncryptionAlgorithmECDHP256     EncryptionAlgorithm = 1
 	EncryptionAlgorithmRSA2048      EncryptionAlgorithm = 2
-	EncryptionAlgorithmMLKEM768P256 EncryptionAlgorithm = 3 // the hpke-base container's hybrid suite
+	EncryptionAlgorithmMLKEM768P256 EncryptionAlgorithm = 3 // the hybrid suite of the hpke-base container
 )
 
 // generateMLKEM768P256 makes a fresh MLKEM768-P256 CEK (the hybrid KEM of the hpke-base container).

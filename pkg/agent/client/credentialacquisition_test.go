@@ -64,7 +64,7 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 		Target:         "spiffe://example.org",
 		CredentialType: types.CredentialType_CREDENTIAL_TYPE_X509,
 	}
-	want := &credentialacquisitionv1.InitiateCredentialAcquisitionResponse{
+	expected := &credentialacquisitionv1.InitiateCredentialAcquisitionResponse{
 		Mode:            types.CredentialAcquisitionMode_CREDENTIAL_ACQUISITION_MODE_ENROLL,
 		FreshnessKind:   types.FreshnessKind_FRESHNESS_KIND_PRESENT_NONCE,
 		FreshnessHandle: []byte("0123456789abcdef0123456789abcdef"),
@@ -73,12 +73,12 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 	}
 
 	t.Run("success keeps the connection", func(t *testing.T) {
-		tc.credentialAcquisitionServer.initiateResp = want
+		tc.credentialAcquisitionServer.initiateResp = expected
 		tc.credentialAcquisitionServer.err = nil
 
 		resp, err := client.InitiateCredentialAcquisition(context.Background(), req)
 		require.NoError(t, err)
-		spiretest.AssertProtoEqual(t, want, resp)
+		spiretest.AssertProtoEqual(t, expected, resp)
 		spiretest.AssertProtoEqual(t, req, tc.credentialAcquisitionServer.lastInitiate)
 		assertConnectionIsNotNil(t, client)
 	})
@@ -106,7 +106,7 @@ func TestEnrollCredential(t *testing.T) {
 		Evidence:         []byte("evidence"),
 		Binding:          &types.EvidenceBinding{Method: "binding-input", Hash: "sha512"},
 	}
-	want := &credentialacquisitionv1.EnrollCredentialResponse{
+	expected := &credentialacquisitionv1.EnrollCredentialResponse{
 		Svid: &types.X509SVID{
 			Id:        &types.SPIFFEID{TrustDomain: "example.org", Path: "/workload"},
 			CertChain: [][]byte{[]byte("cert")},
@@ -115,12 +115,12 @@ func TestEnrollCredential(t *testing.T) {
 	}
 
 	t.Run("success keeps the connection", func(t *testing.T) {
-		tc.credentialAcquisitionServer.enrollResp = want
+		tc.credentialAcquisitionServer.enrollResp = expected
 		tc.credentialAcquisitionServer.err = nil
 
 		resp, err := client.EnrollCredential(context.Background(), req)
 		require.NoError(t, err)
-		spiretest.AssertProtoEqual(t, want, resp)
+		spiretest.AssertProtoEqual(t, expected, resp)
 		spiretest.AssertProtoEqual(t, req, tc.credentialAcquisitionServer.lastEnroll)
 		assertConnectionIsNotNil(t, client)
 	})
@@ -149,15 +149,15 @@ func TestRetrieveCredential(t *testing.T) {
 		Evidence:         []byte("evidence"),
 		Binding:          &types.EvidenceBinding{Method: "binding-input", Hash: "sha512"},
 	}
-	want := &credentialacquisitionv1.RetrieveCredentialResponse{EncryptedCredentialBundle: []byte(`{"container":"hpke-base"}`)}
+	expected := &credentialacquisitionv1.RetrieveCredentialResponse{EncryptedCredentialBundle: []byte(`{"container":"hpke-base"}`)}
 
 	t.Run("success keeps the connection", func(t *testing.T) {
-		tc.credentialAcquisitionServer.retrieveResp = want
+		tc.credentialAcquisitionServer.retrieveResp = expected
 		tc.credentialAcquisitionServer.err = nil
 
 		resp, err := client.RetrieveCredential(context.Background(), req)
 		require.NoError(t, err)
-		spiretest.AssertProtoEqual(t, want, resp)
+		spiretest.AssertProtoEqual(t, expected, resp)
 		spiretest.AssertProtoEqual(t, req, tc.credentialAcquisitionServer.lastRetrieve)
 		assertConnectionIsNotNil(t, client)
 	})

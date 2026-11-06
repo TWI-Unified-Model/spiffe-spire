@@ -29,8 +29,8 @@ func (e *vaultRefusal) Error() string { return fmt.Sprintf("Secret Vault: %s: %s
 // vaultClient is the conduit to the Secret Vault of the Targets in retrieve
 // mode: the Secret Vault is the RATS Relying Party that originates the
 // Freshness Handle, appraises the Evidence and releases the credential, sealed
-// to the Credential Encryption Key of the Workload. The Server forwards the
-// two legs.
+// to the Credential Encryption Key of the Workload. The Server forwards both
+// the initiate and the retrieve parts of the flow.
 type vaultClient struct {
 	url    string
 	client *http.Client
@@ -67,7 +67,8 @@ type vaultInitiation struct {
 }
 
 // vaultRetrieval is the attest-retrieve request as the conduit forwards it
-// to the Secret Vault: the second leg, the Evidence and CEKpub.
+// to the Secret Vault: the retrieve part of the flow, with the Evidence and
+// CEKpub.
 type vaultRetrieval struct {
 	FreshnessKind  FreshnessKind `json:"freshness_kind"`
 	Target         string        `json:"target"`

@@ -13,8 +13,10 @@ import (
 // octets, within the 16 to 64 octets of TACRA, with 256 bits of entropy.
 const handleSize = 32
 
-// session is one Initiate-Credential-Acquisition whose Handle is still valid:
-// what the second call must repeat, and the Workload and Agent it belongs to.
+// session is one exchange whose Handle is still valid. An exchange starts
+// with Initiate-Credential-Acquisition and continues with a second call,
+// Enroll-Credential or Retrieve-Credential; the session holds what the second
+// call must repeat, and the Workload and Agent the exchange belongs to.
 type session struct {
 	kind           FreshnessKind
 	target         string
@@ -87,7 +89,9 @@ func (s *sessions) remember(handle []byte, ss session) {
 // initiation, and a Credential Type or Credential Hint the initiation named,
 // while one it omitted may be named. This Server adds the registration entry
 // of the Workload and its Agent: the exchange belongs to the Workload the
-// Agent attested at initiation. A present-nonce Handle is consumed once.
+// Agent attested at initiation. A present-nonce Handle is accepted once: the
+// second call that matches consumes the session, the Server forgets it, and a
+// later call with the same Handle is refused with ErrUnknownHandle.
 func (s *sessions) consume(handle []byte, kind FreshnessKind, target, credentialType, hint, entryID, agentID string) (session, error) {
 	key := hex.EncodeToString(handle)
 	s.mu.Lock()

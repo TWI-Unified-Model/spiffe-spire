@@ -260,7 +260,7 @@ func rawUint(mval map[any]any, n int) (uint64, error) {
 		return 0, errors.New("no raw value")
 	}
 	if len(b) != n {
-		return 0, fmt.Errorf("raw value of %d octets, want %d", len(b), n)
+		return 0, fmt.Errorf("raw value of %d octets, expected %d", len(b), n)
 	}
 	var v uint64
 	for _, x := range b {

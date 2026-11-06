@@ -20,7 +20,7 @@ func TestBindingValueMatchesHardwareVector(t *testing.T) {
 	subject, _ := hex.DecodeString(tv3SubjectHex)
 	bv := BindingValue(handle, tv3Target, subject)
 	if got := hex.EncodeToString(bv[:]); got != tv3ReportDataHex {
-		t.Fatalf("binding value %s, want REPORT_DATA of the report %s", got, tv3ReportDataHex)
+		t.Fatalf("binding value %s, expected REPORT_DATA of the report %s", got, tv3ReportDataHex)
 	}
 	if n := len(BindingInput(handle, tv3Target, subject)); n != 4+32+4+len(tv3Target)+4+len(subject) {
 		t.Fatalf("binding input is %d octets", n)

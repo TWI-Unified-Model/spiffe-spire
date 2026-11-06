@@ -181,7 +181,7 @@ func (a *Acquirer) Initiate(ctx context.Context, in Initiation) (*InitiationResu
 			Mode:               ModeRetrieve,
 			FreshnessKind:      FreshnessPresentNonce,
 			Handle:             handle,
-			ExpiresIn:          uint32(expiresIn / time.Second), //nolint:gosec // bounded by the vault's answer
+			ExpiresIn:          uint32(expiresIn / time.Second), //nolint:gosec // bounded by the answer of the Secret Vault
 			AcceptableCEK:      vi.AcceptableCEK,
 			AcceptableEvidence: slices.Clone(a.evidence),
 		}, nil
@@ -300,7 +300,7 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 	if err := a.consumeSession(in.FreshnessKind, in.FreshnessElement, in.Target, in.CredentialType, in.CredentialHint, in.EntryID, in.AgentID); err != nil {
 		return nil, err
 	}
-	leg := &vaultRetrieval{
+	retrieval := &vaultRetrieval{
 		FreshnessKind:  in.FreshnessKind,
 		Target:         in.Target,
 		CredentialType: in.CredentialType,
@@ -327,12 +327,12 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 		if err := p.servesCredentialType(in.CredentialType); err != nil {
 			return nil, err
 		}
-		leg.EAR = ear
+		retrieval.EAR = ear
 	default:
-		leg.Evidence = base64.RawURLEncoding.EncodeToString(in.Evidence)
-		leg.Profile = profile
+		retrieval.Evidence = base64.RawURLEncoding.EncodeToString(in.Evidence)
+		retrieval.Profile = profile
 	}
-	container, err := a.vault.retrieve(ctx, leg)
+	container, err := a.vault.retrieve(ctx, retrieval)
 	if err != nil {
 		return nil, vaultError(err)
 	}

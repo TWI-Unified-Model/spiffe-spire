@@ -352,12 +352,12 @@ func TestRetrieve(t *testing.T) {
 		last := x.verifier.nonces[len(x.verifier.nonces)-1]
 		x.verifier.mu.Unlock()
 		require.Equal(t, BindingValue(res.Handle, testPassportTarget, r.CEKPub), last, "the Verifier was asked with the binding value over CEKpub")
-		leg := x.vault.lastRetrieve
-		require.NotEmpty(t, leg.EAR, "the Attestation Results go to the Secret Vault")
-		require.Empty(t, leg.Evidence, "the Evidence stays with the Server")
-		require.Empty(t, leg.Profile)
-		require.Equal(t, testPassportTarget, leg.Target)
-		require.Equal(t, "api-key", leg.CredentialType)
+		retrieval := x.vault.lastRetrieve
+		require.NotEmpty(t, retrieval.EAR, "the Attestation Results go to the Secret Vault")
+		require.Empty(t, retrieval.Evidence, "the Evidence stays with the Server")
+		require.Empty(t, retrieval.Profile)
+		require.Equal(t, testPassportTarget, retrieval.Target)
+		require.Equal(t, "api-key", retrieval.CredentialType)
 	})
 	t.Run("passport: a Credential Type not supported, named at retrieval only, is refused after the Attestation Results", func(t *testing.T) {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testPassportTarget, CredentialHint: "billing"})
