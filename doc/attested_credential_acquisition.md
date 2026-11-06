@@ -151,6 +151,7 @@ SPIRE: `2m`, `90s`.
 | `ear_skew` | How far in the future Attestation Results may be dated | `5s` |
 | `client_cert_path`, `client_key_path` | The certificate and key the Server presents to the Verifiers and the Secret Vault when they require mutual TLS | none |
 | `platform_rule_path` | The JSON file with the platform rule, see below | none: only the debug and migration bits of the guest policy are refused |
+| `sevsnp_products_path` | The JSON file with the product data of AMD for SEV-SNP, see below | the copy SPIRE ships |
 | `verifier "<name>"` | A Verifier the Server trusts, see below | at least one |
 | `target "<name>"` | The policy for a Target, see below | at least one |
 | `secret_vault` | The Secret Vault of the Targets in retrieve mode | required when a Target is in retrieve mode |
@@ -222,6 +223,38 @@ each refusal gives, the PLATFORM_INFO bits required, and the waivers. The guest
 policy is the POLICY field of the report, the launch settings of the guest:
 its debug and migration bits are refused with or without a rule. For TDX the
 rule names the TD ATTRIBUTES bits refused.
+
+The rule has one entry per platform family, keyed by the name of the module of
+the Server for the family: `sevsnp`, `tdx`. A module is the counterpart on the
+Server side of the platform plug-in of the Attester: it names the EAR submodule
+the Verifier annotates for the family, parses and validates the entry, and
+applies it to the Attestation Results. A family without an entry is refused. A
+new family, CCA for example, is a new module; the rest of the Server does not
+change.
+
+The module for SEV-SNP reads the report with the product data of AMD: which
+product line a CPUID family and extended model names, and the byte of each
+component in TCB_VERSION. That data grows with every product line AMD ships, so
+it is a JSON file under version control, not code: the copy SPIRE ships,
+[sevsnp_products.json](/pkg/server/credentialacquisition/sevsnp_products.json),
+or the file `sevsnp_products_path` names, in the same format.
+
+```json
+{
+  "products": [
+    {
+      "name": "Turin",
+      "cpuid": [{"family": "0x1A", "extended_model": "0x0"}, {"family": "0x1A", "extended_model": "0x1"}],
+      "tcb_layout": {"fmc": 0, "bl": 1, "tee": 2, "snp": 3, "ucode": 7},
+      "source": "AMD 57230 Rev. 1.05, Table 4; AMD 56860 Rev. 1.59, Table 4"
+    }
+  ]
+}
+```
+
+A product line without a layout is not decoded, so the rule refuses it; an
+operator who has the layout adds it to the file. A rule that names a product
+line the data does not have is refused when the Server starts.
 
 ## Refusals
 

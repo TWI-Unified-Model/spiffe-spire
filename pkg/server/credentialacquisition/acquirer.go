@@ -61,9 +61,13 @@ func New(c *Config, log logrus.FieldLogger) (*Acquirer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("credential_acquisition: %w", err)
 	}
+	modules, err := platformModules(c)
+	if err != nil {
+		return nil, fmt.Errorf("credential_acquisition: %w", err)
+	}
 	var rule *PlatformRule
 	if c.PlatformRulePath != "" {
-		if rule, err = loadPlatformRule(c.PlatformRulePath); err != nil {
+		if rule, err = loadPlatformRule(c.PlatformRulePath, modules); err != nil {
 			return nil, fmt.Errorf("credential_acquisition: platform_rule_path: %w", err)
 		}
 	}

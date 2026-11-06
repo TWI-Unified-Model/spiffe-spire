@@ -405,7 +405,7 @@ func (x *acquirerTest) restoreVerifier(t *testing.T) {
 func TestEnrollPlatformRule(t *testing.T) {
 	ctx := context.Background()
 	x := newAcquirerTest(t)
-	x.a.platform = recordedRule()
+	x.a.platform = recordedRule(t)
 	csr := testCSR(t)
 	enroll := func(t *testing.T) (*EnrollmentResult, error) {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "x509"})

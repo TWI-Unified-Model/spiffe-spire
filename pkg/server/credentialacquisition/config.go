@@ -100,6 +100,13 @@ type Config struct {
 	// debugging and migration are allowed (AMD 56860, Table 12). Without a rule,
 	// only the debug and migration bits of the guest policy are refused.
 	PlatformRulePath string `hcl:"platform_rule_path"`
+
+	// SEVSNPProductsPath is the file holding the product data of AMD the
+	// platform module for SEV-SNP reads reports with: the product lines, the
+	// CPUID family and extended model that report each, and the byte of each
+	// component in TCB_VERSION. Without it, the Server uses the copy it ships.
+	// The file is JSON, in the format of that copy.
+	SEVSNPProductsPath string `hcl:"sevsnp_products_path"`
 }
 
 // TargetConfig is the policy for one Target.

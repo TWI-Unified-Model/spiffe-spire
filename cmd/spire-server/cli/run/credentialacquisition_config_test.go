@@ -49,6 +49,7 @@ server {
                 client_key_path = "/certs/conduit.key"
             }
             platform_rule_path = "/rules/platform.json"
+            sevsnp_products_path = "/rules/sevsnp-products.json"
         }
     }
 }
@@ -82,6 +83,7 @@ plugins {
 	require.Equal(t, &credentialacquisition.SecretVaultConfig{URL: "https://localhost:9102", CAPath: "/certs/root.crt",
 		ClientCertPath: "/certs/conduit.crt", ClientKeyPath: "/certs/conduit.key"}, ca.SecretVault)
 	require.Equal(t, "/rules/platform.json", ca.PlatformRulePath)
+	require.Equal(t, "/rules/sevsnp-products.json", ca.SEVSNPProductsPath)
 
 	policies, err := ca.Validate()
 	require.NoError(t, err)
