@@ -88,8 +88,10 @@ type Config struct {
 	// PlatformRulePath is the file holding the platform rule applied to
 	// affirming Attestation Results of every Target: the machine, the product
 	// line, the TCB floors, the mitigations and the guest policy for SEV-SNP,
-	// the TD attributes for TDX. Without it, only the debug and migration bits of
-	// the guest policy are refused.
+	// the TD attributes for TDX. The guest policy is the POLICY field of the
+	// SEV-SNP report: the launch settings of the guest, among them whether
+	// debugging and migration are allowed (AMD 56860, Table 12). Without a rule,
+	// only the debug and migration bits of the guest policy are refused.
 	PlatformRulePath string `hcl:"platform_rule_path"`
 }
 
