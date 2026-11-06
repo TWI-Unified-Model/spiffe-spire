@@ -149,8 +149,9 @@ type VerifierConfig struct {
 	// URL is the base URL of the challenge-response API of the Verifier.
 	URL string `hcl:"url"`
 
-	// CAPath is the file holding the CA certificate of the TLS certificate of
-	// the Verifier.
+	// CAPath is the file holding the certificate of the CA that signed the TLS
+	// certificate of the Verifier: the Server trusts that CA, so the Verifier
+	// rotates its own certificate under it without a change here.
 	CAPath string `hcl:"ca_path"`
 
 	// EARKeyPath is the file holding the public key the Verifier signs its
@@ -172,8 +173,9 @@ type SecretVaultConfig struct {
 	// URL is the base URL of the TACRA API of the Secret Vault.
 	URL string `hcl:"url"`
 
-	// CAPath is the file holding the CA certificate of the TLS certificate of
-	// the Secret Vault.
+	// CAPath is the file holding the certificate of the CA that signed the TLS
+	// certificate of the Secret Vault: the Server trusts that CA, so the Secret
+	// Vault rotates its own certificate under it without a change here.
 	CAPath string `hcl:"ca_path"`
 
 	// ClientCertPath and ClientKeyPath, when set, are the certificate and key
