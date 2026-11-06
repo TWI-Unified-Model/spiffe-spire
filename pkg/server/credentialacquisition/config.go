@@ -199,7 +199,8 @@ type Policy struct {
 	RATSModel           RATSModel
 }
 
-// Validate checks the configuration and returns the parsed policies.
+// Validate returns the parsed policies of a correct configuration, and the
+// first error it finds otherwise.
 func (c *Config) Validate() (map[string]*Policy, error) {
 	if len(c.Target) == 0 {
 		return nil, errors.New("credential_acquisition: at least one Target is required")
