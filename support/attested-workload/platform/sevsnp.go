@@ -89,7 +89,9 @@ type tsmConfig struct {
 	client        configfsi.Client
 	clock         func() time.Time
 	localEpoch    []byte
-	completeChain bool // SEV-SNP: append the ASK/ASVK and ARK of AMD when the host leaves them out
+	completeChain bool       // SEV-SNP: append the ASK or ASVK and ARK of AMD when the host leaves them out
+	amdChainsDir  string     // SEV-SNP: a directory of chains in place of the copies this Workload ships
+	amdChains     *amdChains // SEV-SNP: the chains, loaded when completeChain is set
 }
 
 // TSMOption configures a configfs-tsm back-end.
@@ -123,10 +125,26 @@ func WithoutChainCompletion() TSMOption {
 	}
 }
 
+// WithAMDChains names a directory of PEM files, the ASK or ASVK and ARK of AMD
+// per product line, in place of the copies this Workload ships; empty keeps
+// the copies.
+func WithAMDChains(dir string) TSMOption {
+	return func(p *tsmConfig) {
+		p.amdChainsDir = dir
+	}
+}
+
 func newTSMConfig(opts []TSMOption) (tsmConfig, error) {
 	c := tsmConfig{clock: time.Now, completeChain: true}
 	for _, o := range opts {
 		o(&c)
+	}
+	if c.completeChain {
+		chains, err := loadAMDChains(c.amdChainsDir)
+		if err != nil {
+			return c, err
+		}
+		c.amdChains = chains
 	}
 	if c.client == nil {
 		client, err := linuxtsm.MakeClient()
@@ -293,7 +311,7 @@ func (p *SEVSNP) GenerateEvidence(req EvidenceRequest) (*Evidence, error) {
 	aux := resp.AuxBlob
 	completed := false
 	if p.completeChain && len(aux) > 0 {
-		if aux, completed, err = completeCertTable(aux); err != nil {
+		if aux, completed, err = completeCertTable(aux, p.amdChains); err != nil {
 			return nil, err
 		}
 	}

@@ -117,6 +117,7 @@ func mainWithCode() int {
 	vaultOriginKey := flag.String("vaultOriginKey", "", "a file holding the signature key of the Secret Vault (PEM or DER SubjectPublicKeyInfo); given, the container must be signed under it")
 	maxValidity := flag.Int("maxValidity", 3600, "the longest validity_seconds of a retrieved credential this Workload accepts")
 	tee := flag.String("tee", "sev-snp", "the trusted execution environment: sev-snp or tdx")
+	amdChains := flag.String("amdChains", "", "a directory of PEM files, the ASK or ASVK and ARK of AMD per product line, in place of the copies this Workload ships (platform/amdchains)")
 	out := flag.String("out", ".", "the directory the SVID, its key, the bundle and result.json are written to")
 	timeout := flag.Duration("timeout", 2*time.Minute, "how long the exchange may take")
 	flag.Parse()
@@ -129,7 +130,7 @@ func mainWithCode() int {
 	defer cancel()
 
 	r := &result{Target: *target, CredentialType: *credentialType, CredentialHint: *hint, TEE: *tee, StartedAt: time.Now().UTC()}
-	err := run(ctx, r, *socketPath, *out, *vaultOriginKey, *maxValidity)
+	err := run(ctx, r, *socketPath, *out, *vaultOriginKey, *amdChains, *maxValidity)
 	r.FinishedAt = time.Now().UTC()
 	r.OK = err == nil
 	if err != nil {
@@ -150,7 +151,7 @@ func mainWithCode() int {
 	return 0
 }
 
-func run(ctx context.Context, r *result, socketPath, out, vaultOriginKey string, maxValidity int) error {
+func run(ctx context.Context, r *result, socketPath, out, vaultOriginKey, amdChains string, maxValidity int) error {
 	if err := os.MkdirAll(out, 0o750); err != nil {
 		return err
 	}
@@ -177,7 +178,7 @@ func run(ctx context.Context, r *result, socketPath, out, vaultOriginKey string,
 	var err error
 	switch r.TEE {
 	case "sev-snp":
-		plugin, err = platform.NewSEVSNP()
+		plugin, err = platform.NewSEVSNP(platform.WithAMDChains(amdChains))
 	case "tdx":
 		plugin, err = platform.NewTDX()
 	default:

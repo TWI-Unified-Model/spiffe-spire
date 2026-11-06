@@ -305,11 +305,18 @@ opens the container with its CEK, checks the associated data and, when a key is
 given with `-vaultOriginKey`, the origin signature of the Secret Vault, and
 writes the credential it received. `result.json` records the exchange.
 
+For SEV-SNP the Workload completes the certificate table of a host that leaves
+out the ASK or ASVK and the ARK of AMD, as AWS does. Those chains grow with
+every product line, so they are PEM files under version control,
+[amdchains](/support/attested-workload/platform/amdchains/) with their sources
+in its README, embedded as the copies the Workload ships; `-amdChains` names a
+directory of files in their place. A file is indexed by the subject of its
+first certificate, the issuer of the VCEK or VLEK.
+
 ## The shape of the proof of concept
 
 The Server issues present-nonce Handles; a Target in retrieve mode uses the
 Freshness Kind its Secret Vault answers. Enrollment mints `x509`; `wic` is named
-and not minted yet. The Server speaks to Veraison and reads its Attestation Results as an EAR;
-another Verifier needs its own challenge-response client, and the kind of
-Verifier is not a configuration option yet. The policy is a table keyed by the
-Target name.
+and not minted yet. The Server speaks to one kind of Verifier, `veraison`, and one kind of Secret
+Vault, `json`; another is a new implementation at its point of extension. The
+policy is a table keyed by the Target name.

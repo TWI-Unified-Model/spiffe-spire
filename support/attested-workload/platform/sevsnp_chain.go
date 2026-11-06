@@ -1,26 +1,13 @@
 package platform
 
 import (
-	"bytes"
 	"encoding/hex"
 	"fmt"
 	"strings"
 
 	"github.com/google/go-sev-guest/abi"
-	"github.com/google/go-sev-guest/kds"
 	"github.com/google/go-sev-guest/verify/trust"
 )
-
-// The public product chains of AMD (ASK or ASVK, and ARK), as embedded in go-sev-guest, by the common name of the ASK or
-// ASVK, which is the issuer of the VCEK or VLEK it certifies. The plug-in needs no network to supply them.
-var amdChains = map[string][]byte{
-	"SEV-Milan":      trust.AskArkMilanVcekBytes,
-	"SEV-VLEK-Milan": trust.AskArkMilanVlekBytes,
-	"SEV-Genoa":      trust.AskArkGenoaVcekBytes,
-	"SEV-VLEK-Genoa": trust.AskArkGenoaVlekBytes,
-	"SEV-Turin":      trust.AskArkTurinVcekBytes,
-	"SEV-VLEK-Turin": trust.AskArkTurinVlekBytes,
-}
 
 // Certificate table GUIDs as the host writes them: the abi constants of
 // go-sev-guest, in hex without the dashes (see snpCertGUIDs).
@@ -37,11 +24,11 @@ type certEntry struct {
 }
 
 // completeCertTable returns the certificate table of the host with the AMD ASK (or ASVK) and ARK appended when the host
-// left them out, as AWS does. The table is not covered by the report signature; the Verifier checks the chain up to
-// the ARK it holds as trust anchor, so a wrong certificate here can only make the Evidence fail. added reports
-// whether anything was appended. A table that already has both, or whose VCEK or VLEK is missing, unreadable or
-// issued for a product line without an embedded chain, is returned unchanged for the Verifier to judge.
-func completeCertTable(table []byte) (out []byte, added bool, err error) {
+// left them out, as AWS does, from the chains given. The table is not covered by the report signature; the Verifier
+// checks the chain up to the ARK it holds as trust anchor, so a wrong certificate here can only make the Evidence
+// fail. added reports whether anything was appended. A table that already has both, or whose VCEK or VLEK is missing,
+// unreadable or issued for a product line the chains do not cover, is returned unchanged for the Verifier to judge.
+func completeCertTable(table []byte, chains *amdChains) (out []byte, added bool, err error) {
 	entries, err := certTableEntries(table)
 	if err != nil {
 		return nil, false, err
@@ -64,18 +51,14 @@ func completeCertTable(table []byte) (out []byte, added bool, err error) {
 	if err != nil {
 		return table, false, nil //nolint:nilerr // a signer this plug-in cannot read: the table is left as it is
 	}
-	chain, ok := amdChains[leaf.Issuer.CommonName]
+	chain, ok := chains.chain(leaf.Issuer.CommonName)
 	if !ok {
 		return table, false, nil
-	}
-	ask, ark, err := parseAMDChain(chain)
-	if err != nil {
-		return nil, false, err
 	}
 	for _, add := range []struct {
 		guid string
 		der  []byte
-	}{{guidASK, ask}, {guidARK, ark}} {
+	}{{guidASK, chain.ask}, {guidARK, chain.ark}} {
 		if have[add.guid] == nil {
 			g, _ := hex.DecodeString(add.guid)
 			entries = append(entries, certEntry{g, add.der})
@@ -83,12 +66,6 @@ func completeCertTable(table []byte) (out []byte, added bool, err error) {
 		}
 	}
 	return encodeCertTable(entries), added, nil
-}
-
-// parseAMDChain returns the DER ASK (or ASVK) and ARK of an embedded product chain. It trims the bundle first:
-// The Turin VLEK bundle of go-sev-guest (v0.15.0) ends with a blank line, which kds.ParseProductCertChain refuses.
-func parseAMDChain(chain []byte) (ask, ark []byte, err error) {
-	return kds.ParseProductCertChain(bytes.TrimSpace(chain))
 }
 
 func certTableEntries(table []byte) ([]certEntry, error) {
