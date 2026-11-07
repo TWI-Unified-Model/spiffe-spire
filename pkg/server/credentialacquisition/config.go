@@ -18,14 +18,14 @@ import (
 	"time"
 )
 
-// Mode is a Credential Acquisition Mode of TACRA. The configuration spells it
-// as one of two names, which Validate checks.
-type Mode string
+// CredentialAcquisitionMode is a Credential Acquisition Mode of TACRA. The
+// configuration spells it as one of two names, which Validate checks.
+type CredentialAcquisitionMode string
 
 // The Credential Acquisition Modes of TACRA.
 const (
-	ModeEnroll   Mode = "enroll"
-	ModeRetrieve Mode = "retrieve"
+	ModeEnroll   CredentialAcquisitionMode = "enroll"
+	ModeRetrieve CredentialAcquisitionMode = "retrieve"
 )
 
 // The RATS models a Target in retrieve mode is served in. In the Passport RATS
@@ -55,11 +55,27 @@ const (
 	FreshnessAbsentNone      FreshnessKind = "absent-none"
 )
 
+// CredentialType is a Credential Type of TACRA. The configuration and the
+// API spell it as one of the names below.
+type CredentialType string
+
 // The Credential Types of TACRA.
-var credentialTypes = []string{"x509", "wic", "wit", "jwt", "api-key", "psk", "private-key"}
+const (
+	CredentialTypeX509       CredentialType = "x509"
+	CredentialTypeWIC        CredentialType = "wic"
+	CredentialTypeWIT        CredentialType = "wit"
+	CredentialTypeJWT        CredentialType = "jwt"
+	CredentialTypeAPIKey     CredentialType = "api-key"
+	CredentialTypePSK        CredentialType = "psk"
+	CredentialTypePrivateKey CredentialType = "private-key"
+)
+
+// credentialTypes lists the Credential Types of TACRA.
+var credentialTypes = []CredentialType{CredentialTypeX509, CredentialTypeWIC, CredentialTypeWIT, CredentialTypeJWT,
+	CredentialTypeAPIKey, CredentialTypePSK, CredentialTypePrivateKey}
 
 // The Credential Types Enrollment mints.
-var enrollableCredentialTypes = []string{"x509", "wic"}
+var enrollableCredentialTypes = []CredentialType{CredentialTypeX509, CredentialTypeWIC}
 
 // The CSK algorithms this Server accepts, by the names acceptable_csk carries.
 var supportedCSKAlgorithms = []string{"ecdsa-p256-sha256"}
@@ -117,11 +133,11 @@ type Config struct {
 // TargetConfig is the policy for one Target.
 type TargetConfig struct {
 	// Mode is enroll or retrieve.
-	Mode Mode `hcl:"mode"`
+	Mode CredentialAcquisitionMode `hcl:"mode"`
 
 	// CredentialTypes are the Credential Types served for the Target.
 	// Enrollment serves x509 and wic.
-	CredentialTypes []string `hcl:"credential_types"`
+	CredentialTypes []CredentialType `hcl:"credential_types"`
 
 	// FreshnessKind is the Freshness Kind of the exchanges of the Target. This
 	// Server issues present-nonce Handles; a Target in retrieve mode uses
@@ -158,13 +174,13 @@ type TargetConfig struct {
 
 // VerifierConfig is one RATS Verifier.
 type VerifierConfig struct {
-	// Kind is the kind of Verifier: how the Server sends it Evidence and
-	// reads its Attestation Results. veraison is the default, and the one
-	// kind for now.
-	Kind string `hcl:"kind"`
+	// VerifierKind is the kind of Verifier: how the Server sends it Evidence
+	// and reads its Attestation Results. The Veraison kind, veraison, is the
+	// default and the one kind for now.
+	VerifierKind string `hcl:"kind"`
 
-	// URL is the base URL of the API of the Verifier: for kind veraison, its
-	// challenge-response API.
+	// URL is the base URL of the API of the Verifier: for the Veraison kind,
+	// its challenge-response API.
 	URL string `hcl:"url"`
 
 	// CAPath is the file holding the certificate of the CA that signed the TLS
@@ -172,7 +188,7 @@ type VerifierConfig struct {
 	// rotates its own certificate under it without a change here.
 	CAPath string `hcl:"ca_path"`
 
-	// EARKeyPath, for kind veraison, is the file holding the public key the
+	// EARKeyPath, for the Veraison kind, is the file holding the public key the
 	// Verifier signs its Attestation Results with: an EC P-256 public JWK, or
 	// a PEM public key. It is provisioned, never fetched.
 	EARKeyPath string `hcl:"ear_key_path"`
@@ -181,17 +197,17 @@ type VerifierConfig struct {
 	// appraises: sev_guest or tdx_guest.
 	Provider string `hcl:"provider"`
 
-	// Submods, for kind veraison, names the EAR submodules the Verifier speaks
+	// Submods, for the Veraison kind, names the EAR submodules the Verifier speaks
 	// for, each of a platform family: SEVSNP, TDX.
 	Submods []string `hcl:"submods"`
 }
 
 // SecretVaultConfig is the Secret Vault of the Targets in retrieve mode.
 type SecretVaultConfig struct {
-	// Kind is the kind of Secret Vault: how the Server forwards the initiate
-	// and the retrieve parts of the flow to it. json, the TACRA calls as JSON
-	// over HTTPS, is the default and the one kind for now.
-	Kind string `hcl:"kind"`
+	// SecretVaultKind is the kind of Secret Vault: how the Server forwards the
+	// initiate and the retrieve parts of the flow to it. json, the TACRA calls
+	// as JSON over HTTPS, is the default and the one kind for now.
+	SecretVaultKind string `hcl:"kind"`
 
 	// URL is the base URL of the API of the Secret Vault.
 	URL string `hcl:"url"`
@@ -211,8 +227,8 @@ type SecretVaultConfig struct {
 // Policy is the parsed policy of one Target.
 type Policy struct {
 	Name                string
-	Mode                Mode
-	CredentialTypes     []string
+	Mode                CredentialAcquisitionMode
+	CredentialTypes     []CredentialType
 	FreshnessKind       FreshnessKind
 	ExpiresIn           time.Duration
 	Verifiers           []string
@@ -235,9 +251,9 @@ func (c *Config) Validate() (map[string]*Policy, error) {
 		if v == nil {
 			return nil, fmt.Errorf("credential_acquisition: Verifier %q is empty", name)
 		}
-		kind, ok := verifierKindNamed(v.Kind)
+		kind, ok := verifierKindNamed(v.VerifierKind)
 		if !ok {
-			return nil, fmt.Errorf("credential_acquisition: Verifier %q: kind %q is not one of %s", name, v.Kind, verifierKindNames())
+			return nil, fmt.Errorf("credential_acquisition: Verifier %q: kind %q is not one of %s", name, v.VerifierKind, verifierKindNames())
 		}
 		if v.Provider == "" {
 			return nil, fmt.Errorf("credential_acquisition: Verifier %q: provider is required", name)
@@ -253,9 +269,9 @@ func (c *Config) Validate() (map[string]*Policy, error) {
 		return nil, fmt.Errorf("credential_acquisition: ear_skew: %w", err)
 	}
 	if c.SecretVault != nil {
-		kind, ok := secretVaultKindNamed(c.SecretVault.Kind)
+		kind, ok := secretVaultKindNamed(c.SecretVault.SecretVaultKind)
 		if !ok {
-			return nil, fmt.Errorf("credential_acquisition: secret_vault: kind %q is not one of %s", c.SecretVault.Kind, secretVaultKindNames())
+			return nil, fmt.Errorf("credential_acquisition: secret_vault: kind %q is not one of %s", c.SecretVault.SecretVaultKind, secretVaultKindNames())
 		}
 		if err := kind.Validate(c.SecretVault); err != nil {
 			return nil, fmt.Errorf("credential_acquisition: secret_vault: %w", err)
@@ -295,7 +311,7 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 	switch p.Mode {
 	case ModeEnroll:
 		if len(p.CredentialTypes) == 0 {
-			p.CredentialTypes = []string{"x509"}
+			p.CredentialTypes = []CredentialType{CredentialTypeX509}
 		}
 		for _, ct := range p.CredentialTypes {
 			if !slices.Contains(enrollableCredentialTypes, ct) {

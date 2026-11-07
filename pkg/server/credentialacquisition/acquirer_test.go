@@ -48,12 +48,12 @@ func newAcquirerTest(t *testing.T) *acquirerTest {
 	vault := newMockVault(t)
 	log, _ := test.NewNullLogger()
 	policies := map[string]*Policy{
-		testTarget: {Name: testTarget, Mode: ModeEnroll, CredentialTypes: []string{"x509"}, FreshnessKind: FreshnessPresentNonce,
+		testTarget: {Name: testTarget, Mode: ModeEnroll, CredentialTypes: []CredentialType{CredentialTypeX509}, FreshnessKind: FreshnessPresentNonce,
 			ExpiresIn: 5 * time.Minute, Verifiers: []string{"veraison"}, AcceptableCSK: []string{"ecdsa-p256-sha256"},
 			Measurements: [][]byte{testMeasurement}},
-		testVaultTarget: {Name: testVaultTarget, Mode: ModeRetrieve, CredentialTypes: []string{"jwt"}, FreshnessKind: FreshnessPresentNonce,
+		testVaultTarget: {Name: testVaultTarget, Mode: ModeRetrieve, CredentialTypes: []CredentialType{CredentialTypeJWT}, FreshnessKind: FreshnessPresentNonce,
 			ExpiresIn: 5 * time.Minute, RATSModel: ModelBackgroundCheck},
-		testPassportTarget: {Name: testPassportTarget, Mode: ModeRetrieve, CredentialTypes: []string{"api-key"}, FreshnessKind: FreshnessPresentNonce,
+		testPassportTarget: {Name: testPassportTarget, Mode: ModeRetrieve, CredentialTypes: []CredentialType{CredentialTypeAPIKey}, FreshnessKind: FreshnessPresentNonce,
 			ExpiresIn: 5 * time.Minute, RATSModel: ModelPassport, Verifiers: []string{"veraison"}},
 	}
 	window := resultsWindow{maxAge: 2 * time.Minute, skew: 5 * time.Second, now: func() time.Time { return now }}
@@ -78,7 +78,7 @@ func TestInitiate(t *testing.T) {
 		require.Equal(t, ModeEnroll, res.Mode)
 		require.Equal(t, FreshnessPresentNonce, res.FreshnessKind)
 		require.Len(t, res.Handle, 32)
-		require.Equal(t, uint32(300), res.ExpiresIn)
+		require.Equal(t, uint32(300), res.ExpiresInSeconds)
 		require.Equal(t, []string{"ecdsa-p256-sha256"}, res.AcceptableCSK)
 		require.Empty(t, res.AcceptableCEK)
 		require.Equal(t, []string{testProfile}, res.AcceptableEvidence)
@@ -88,7 +88,7 @@ func TestInitiate(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, ModeRetrieve, res.Mode)
 		require.Equal(t, x.vault.handle, res.Handle)
-		require.Equal(t, uint32(120), res.ExpiresIn)
+		require.Equal(t, uint32(120), res.ExpiresInSeconds)
 		require.Equal(t, []string{"DHKEM(P-256, HKDF-SHA256)+HKDF-SHA256+AES-256-GCM"}, res.AcceptableCEK)
 		require.Equal(t, map[string]string{"target": testVaultTarget, "credential_type": "jwt", "credential_hint": "billing"}, x.vault.lastInitiate)
 	})
@@ -123,7 +123,7 @@ func TestEnroll(t *testing.T) {
 	x := newAcquirerTest(t)
 	csr := testCSR(t)
 
-	initiate := func(t *testing.T, credentialType, hint string) []byte {
+	initiate := func(t *testing.T, credentialType CredentialType, hint string) []byte {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: credentialType, CredentialHint: hint})
 		require.NoError(t, err)
 		return res.Handle
@@ -185,14 +185,14 @@ func TestEnroll(t *testing.T) {
 		e := enrollment(handle)
 		e.EntryID = "entry-2"
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.InvalidArgument, "differ from the initiation")
+		requireStatus(t, err, codes.InvalidArgument, "not returned by an initiation for this")
 	})
 	t.Run("the Credential Type named at initiation must be repeated", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
 		e := enrollment(handle)
 		e.CredentialType = ""
 		_, err := x.a.Enroll(ctx, e)
-		requireStatus(t, err, codes.InvalidArgument, "a Credential Type or Credential Hint it named is not repeated")
+		requireStatus(t, err, codes.InvalidArgument, "a Credential Type or Credential Hint named at initiation is not repeated")
 	})
 	t.Run("the binding must name binding-input and sha512", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
@@ -354,7 +354,7 @@ func TestRetrieve(t *testing.T) {
 		require.Empty(t, retrieval.Evidence, "the Evidence stays with the Server")
 		require.Empty(t, retrieval.Profile)
 		require.Equal(t, testPassportTarget, retrieval.Target)
-		require.Equal(t, "api-key", retrieval.CredentialType)
+		require.Equal(t, CredentialTypeAPIKey, retrieval.CredentialType)
 	})
 	t.Run("passport: a Credential Type not supported, named at retrieval only, is refused after the Attestation Results", func(t *testing.T) {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testPassportTarget, CredentialHint: "billing"})

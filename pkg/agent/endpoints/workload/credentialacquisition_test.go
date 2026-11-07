@@ -289,15 +289,15 @@ func TestEnrollCredential(t *testing.T) {
 		expectLogs    []spiretest.LogEntry
 	}{
 		{
-			name:       "missing required csr",
+			name:       "missing required CSR",
 			identities: identities,
 			req:        &workloadPB.EnrollCredentialRequest{Target: td.IDString(), Evidence: []byte("evidence"), Binding: testBinding},
 			expectCode: codes.InvalidArgument,
-			expectMsg:  "csr must be specified",
+			expectMsg:  "CSR must be specified",
 			expectLogs: []spiretest.LogEntry{
 				{
 					Level:   logrus.ErrorLevel,
-					Message: "Missing required csr parameter",
+					Message: "Missing required CSR parameter",
 					Data:    logrus.Fields{"service": "WorkloadAPI", "method": "EnrollCredential"},
 				},
 			},
@@ -317,15 +317,15 @@ func TestEnrollCredential(t *testing.T) {
 			},
 		},
 		{
-			name:       "missing required binding",
+			name:       "missing required Binding",
 			identities: identities,
 			req:        &workloadPB.EnrollCredentialRequest{Target: td.IDString(), Csr: []byte("csr"), Evidence: []byte("evidence")},
 			expectCode: codes.InvalidArgument,
-			expectMsg:  "binding must be specified",
+			expectMsg:  "Binding must be specified",
 			expectLogs: []spiretest.LogEntry{
 				{
 					Level:   logrus.ErrorLevel,
-					Message: "Missing required binding parameter",
+					Message: "Missing required Binding parameter",
 					Data:    logrus.Fields{"service": "WorkloadAPI", "method": "EnrollCredential"},
 				},
 			},
@@ -362,7 +362,7 @@ func TestEnrollCredential(t *testing.T) {
 			expectLogs: []spiretest.LogEntry{
 				{
 					Level:   logrus.ErrorLevel,
-					Message: "Server returned no X509-SVID",
+					Message: "The Server returned no X509-SVID",
 					Data: logrus.Fields{
 						"service":   "WorkloadAPI",
 						"method":    "EnrollCredential",
@@ -387,7 +387,7 @@ func TestEnrollCredential(t *testing.T) {
 			expectLogs: []spiretest.LogEntry{
 				{
 					Level:   logrus.ErrorLevel,
-					Message: "Server returned an X509-SVID with a malformed SPIFFE ID",
+					Message: "The Server returned an X509-SVID with a malformed SPIFFE ID",
 					Data: logrus.Fields{
 						"service":       "WorkloadAPI",
 						"method":        "EnrollCredential",
@@ -477,15 +477,15 @@ func TestRetrieveCredential(t *testing.T) {
 		expectLogs []spiretest.LogEntry
 	}{
 		{
-			name:       "missing required cek_pub",
+			name:       "missing required CEKpub",
 			identities: identities,
 			req:        &workloadPB.RetrieveCredentialRequest{Target: fullReq.Target, Evidence: []byte("evidence"), Binding: testBinding},
 			expectCode: codes.InvalidArgument,
-			expectMsg:  "cek_pub must be specified",
+			expectMsg:  "CEKpub must be specified",
 			expectLogs: []spiretest.LogEntry{
 				{
 					Level:   logrus.ErrorLevel,
-					Message: "Missing required cek_pub parameter",
+					Message: "Missing required CEKpub parameter",
 					Data:    logrus.Fields{"service": "WorkloadAPI", "method": "RetrieveCredential"},
 				},
 			},
@@ -521,7 +521,7 @@ func TestRetrieveCredential(t *testing.T) {
 			expectLogs: []spiretest.LogEntry{
 				{
 					Level:   logrus.ErrorLevel,
-					Message: "Server returned no credential bundle",
+					Message: "The Server returned no credential bundle",
 					Data: logrus.Fields{
 						"service":   "WorkloadAPI",
 						"method":    "RetrieveCredential",

@@ -168,7 +168,7 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 		Mode:               acquisition.ModeEnroll,
 		FreshnessKind:      acquisition.FreshnessPresentNonce,
 		Handle:             testHandle,
-		ExpiresIn:          300,
+		ExpiresInSeconds:   300,
 		AcceptableCSK:      []string{"ecdsa-p256-sha256"},
 		AcceptableEvidence: []string{"application/vnd.veraison.tsm-report+cbor"},
 	}
@@ -232,9 +232,9 @@ func TestEnrollCredential(t *testing.T) {
 		_, err := st.client.EnrollCredential(ctx, &credentialacquisitionv1.EnrollCredentialRequest{EntryId: "entry-1", Evidence: []byte("e"), Binding: binding})
 		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, "missing CSR")
 	})
-	t.Run("missing binding", func(t *testing.T) {
+	t.Run("missing Binding", func(t *testing.T) {
 		_, err := st.client.EnrollCredential(ctx, &credentialacquisitionv1.EnrollCredentialRequest{EntryId: "entry-1", Csr: csrDER, Evidence: []byte("e")})
-		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, "missing binding")
+		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, "missing Binding")
 	})
 	t.Run("a refusal of the acquirer is relayed", func(t *testing.T) {
 		st.acquirer.err = status.Error(codes.PermissionDenied, "remote attestation failed: Attestation Results: not affirming: SEVSNP is \"contraindicated\"")
@@ -298,9 +298,9 @@ func TestRetrieveCredential(t *testing.T) {
 		Binding:          binding,
 	}
 
-	t.Run("missing cek_pub", func(t *testing.T) {
+	t.Run("missing CEKpub", func(t *testing.T) {
 		_, err := st.client.RetrieveCredential(ctx, &credentialacquisitionv1.RetrieveCredentialRequest{EntryId: "entry-1", Evidence: []byte("e"), Binding: binding})
-		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, "missing cek_pub")
+		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, "missing CEKpub")
 	})
 	t.Run("no caller ID", func(t *testing.T) {
 		st.withCallerID = false

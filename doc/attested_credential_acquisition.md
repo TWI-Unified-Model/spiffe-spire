@@ -276,6 +276,29 @@ from what arrives: a Verifier of kind `veraison` reads the profile an EAR names
 in `eat_profile`, and refuses Attestation Results that name another, with both
 names in the refusal.
 
+## Logging
+
+Each side logs with one mechanism per place, so that a reader knows where a
+line comes from.
+
+- The Agent, in the Workload API handler: the logger of the call,
+  `rpccontext.Logger`, carries the fields of the call. A missing parameter is
+  logged with it and refused with `InvalidArgument`, as the other calls of the
+  Workload API do. Once the Workload is attested, every failure is logged with
+  `loggerWithContextInfo`, which adds the caller and the duration, as
+  `FetchX509SVID` does: a failed attestation, a refusal of the Server, an answer
+  the Agent cannot use. The rate limiter logs nothing in the handler; its
+  refusal is the status it returns, as for every other call. A Workload with no
+  registration entry is logged by `logNoIdentityIssued`, the helper the other
+  calls use. A success is logged at debug with the fields of the result.
+- The Server API: `MakeErr` logs and returns every refusal; the audit fields of
+  the call go through `AddRPCAuditFields`, and `AuditRPC` emits the audit line.
+- The Server package: a refusal is a gRPC status that names the reason, and is
+  not logged again where it is returned. The package logs at warning what the
+  status does not carry, Attestation Results refused and admissions under a
+  waiver of the platform rule, and the configuration at info when the Server
+  starts.
+
 ## Refusals
 
 The Server answers a refusal with the gRPC code that names its reason, and the

@@ -23,8 +23,8 @@ import (
 // TACRA for the Workloads the Agents attested. The refusals it returns are
 // gRPC statuses that name the reason, as TACRA enumerates them: an invalid
 // or unsupported Target, an unsupported Credential Type, a rejected
-// Credential Hint, a Remote Attestation failure, a permission failure, a
-// Server unreachable.
+// Credential Hint, a Remote Attestation failure, a permission failure, or
+// Server Unreachable.
 type Acquirer struct {
 	log       logrus.FieldLogger
 	policies  map[string]*Policy
@@ -98,18 +98,18 @@ type Initiation struct {
 	EntryID        string
 	AgentID        string
 	Target         string
-	CredentialType string
+	CredentialType CredentialType
 	CredentialHint string
 }
 
 // InitiationResult is what the Workload needs to produce its key and its
 // Evidence.
 type InitiationResult struct {
-	Mode               Mode
+	Mode               CredentialAcquisitionMode
 	FreshnessKind      FreshnessKind
 	Handle             []byte
-	ExpiresIn          uint32
-	MaxAge             uint32
+	ExpiresInSeconds   uint32 // the lifetime of the Handle, in seconds, as the API carries it
+	MaxAgeSeconds      uint32 // how old the Evidence may be, in seconds, as the API carries it
 	AcceptableCSK      []string
 	AcceptableCEK      []string
 	AcceptableEvidence []string
@@ -146,7 +146,7 @@ func (a *Acquirer) Initiate(ctx context.Context, in Initiation) (*InitiationResu
 			Mode:               ModeEnroll,
 			FreshnessKind:      FreshnessPresentNonce,
 			Handle:             handle,
-			ExpiresIn:          uint32(p.ExpiresIn / time.Second), //nolint:gosec // bounded by the configuration
+			ExpiresInSeconds:   uint32(p.ExpiresIn / time.Second), //nolint:gosec // bounded by the configuration
 			AcceptableCSK:      slices.Clone(p.AcceptableCSK),
 			AcceptableEvidence: slices.Clone(a.evidence),
 		}, nil
@@ -160,17 +160,17 @@ func (a *Acquirer) Initiate(ctx context.Context, in Initiation) (*InitiationResu
 		}
 		switch {
 		case vi.Mode != ModeRetrieve:
-			return nil, status.Errorf(codes.Unavailable, "Secret Vault answered mode %q for a Target in retrieve mode", vi.Mode)
+			return nil, status.Errorf(codes.Unavailable, "the Secret Vault answered mode %q for a Target in retrieve mode", vi.Mode)
 		case vi.FreshnessKind != FreshnessPresentNonce:
-			return nil, status.Errorf(codes.Unavailable, "Secret Vault answered Freshness Kind %q; this Server supports present-nonce", vi.FreshnessKind)
+			return nil, status.Errorf(codes.Unavailable, "the Secret Vault answered Freshness Kind %q; this Server supports present-nonce", vi.FreshnessKind)
 		case len(handle) < 16 || len(handle) > 64:
-			return nil, status.Errorf(codes.Unavailable, "Secret Vault answered a Handle of %d octets", len(handle))
+			return nil, status.Errorf(codes.Unavailable, "the Secret Vault answered a Handle of %d octets", len(handle))
 		case len(vi.AcceptableCEK) == 0:
-			return nil, status.Error(codes.Unavailable, "Secret Vault answered no acceptable_cek")
+			return nil, status.Error(codes.Unavailable, "the Secret Vault answered no acceptable_cek")
 		}
 		expiresIn := p.ExpiresIn
-		if vi.ExpiresIn > 0 {
-			expiresIn = time.Duration(vi.ExpiresIn) * time.Second
+		if vi.ExpiresInSeconds > 0 {
+			expiresIn = time.Duration(vi.ExpiresInSeconds) * time.Second
 		}
 		ss.expires = a.sessions.now().Add(expiresIn)
 		a.sessions.remember(handle, ss)
@@ -178,7 +178,7 @@ func (a *Acquirer) Initiate(ctx context.Context, in Initiation) (*InitiationResu
 			Mode:               ModeRetrieve,
 			FreshnessKind:      FreshnessPresentNonce,
 			Handle:             handle,
-			ExpiresIn:          uint32(expiresIn / time.Second), //nolint:gosec // bounded by the answer of the Secret Vault
+			ExpiresInSeconds:   uint32(expiresIn / time.Second), //nolint:gosec // bounded by the answer of the Secret Vault
 			AcceptableCEK:      vi.AcceptableCEK,
 			AcceptableEvidence: slices.Clone(a.evidence),
 		}, nil
@@ -190,7 +190,7 @@ type Enrollment struct {
 	EntryID          string
 	AgentID          string
 	Target           string
-	CredentialType   string
+	CredentialType   CredentialType
 	CredentialHint   string
 	FreshnessKind    FreshnessKind
 	FreshnessElement []byte
@@ -214,8 +214,9 @@ type EnrollmentResult struct {
 	Waived []string
 }
 
-// Enroll checks the exchange, the binding and the Attestation Results, and
-// returns the CSR the Credential Authority mints for.
+// Enroll checks the binding parameters, the Evidence format, the CSR, the
+// Handle of the exchange and the Attestation Results, and returns the CSR for
+// which the Credential Authority mints the X509-SVID of the Attester.
 func (a *Acquirer) Enroll(ctx context.Context, in Enrollment) (*EnrollmentResult, error) {
 	p, err := a.policy(in.Target, ModeEnroll)
 	if err != nil {
@@ -241,8 +242,8 @@ func (a *Acquirer) Enroll(ctx context.Context, in Enrollment) (*EnrollmentResult
 	if err != nil {
 		return nil, err
 	}
-	// The Credential Type after the attestation: a request that failed attestation is refused for that, whatever it
-	// asked for; one that passed and asks for a type the policy does not support is refused for the type.
+	// The Credential Type is checked after the attestation: a request that failed attestation is refused; one that
+	// passed and asks for a Credential Type the policy does not support is refused also.
 	if err := p.servesCredentialType(in.CredentialType); err != nil {
 		return nil, err
 	}
@@ -261,7 +262,7 @@ type Retrieval struct {
 	EntryID          string
 	AgentID          string
 	Target           string
-	CredentialType   string
+	CredentialType   CredentialType
 	CredentialHint   string
 	FreshnessKind    FreshnessKind
 	FreshnessElement []byte
@@ -272,10 +273,16 @@ type Retrieval struct {
 	BindingHash      string
 }
 
-// Retrieve checks the exchange and forwards the request to the Secret
-// Vault, which appraises the Evidence, checks the binding of CEKpub and
-// releases the credential sealed to it. The container comes back opaque.
+// Retrieve checks the binding parameters, the Evidence format, CEKpub and
+// the Handle of the exchange, and forwards the request to the Secret Vault,
+// which appraises the Evidence, checks the binding of CEKpub and releases the
+// credential sealed to it. The container comes back opaque.
 func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
+	// A Server without a Secret Vault serves no Target in retrieve mode, as
+	// Validate refuses such a configuration; the guard comes first all the same.
+	if a.vault == nil {
+		return nil, status.Error(codes.Unavailable, "no Secret Vault is configured")
+	}
 	p, err := a.policy(in.Target, ModeRetrieve)
 	if err != nil {
 		return nil, err
@@ -288,10 +295,7 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 		return nil, err
 	}
 	if len(in.CEKPub) == 0 {
-		return nil, status.Error(codes.InvalidArgument, "cek_pub must be specified")
-	}
-	if a.vault == nil {
-		return nil, status.Error(codes.Unavailable, "no Secret Vault is configured")
+		return nil, status.Error(codes.InvalidArgument, "CEKpub must be specified")
 	}
 	// The request is well formed: the single-use Handle is consumed only now.
 	if err := a.consumeSession(in.FreshnessKind, in.FreshnessElement, in.Target, in.CredentialType, in.CredentialHint, in.EntryID, in.AgentID); err != nil {
@@ -321,8 +325,8 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 		case err != nil:
 			return nil, status.Errorf(codes.PermissionDenied, "remote attestation failed: %v", err)
 		}
-		// the Credential Type after the Attestation Results, as at enrollment; in Background Check the Secret Vault
-		// appraises and applies its own policy to the type, which this Server relays
+		// The Credential Type is checked after the Attestation Results, as in Enroll. In Background Check the
+		// Secret Vault appraises and applies its own policy to the Credential Type, which this Server relays.
 		if err := p.servesCredentialType(in.CredentialType); err != nil {
 			return nil, err
 		}
@@ -338,7 +342,7 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 	return container, nil
 }
 
-func (a *Acquirer) policy(target string, mode Mode) (*Policy, error) {
+func (a *Acquirer) policy(target string, mode CredentialAcquisitionMode) (*Policy, error) {
 	if target == "" {
 		return nil, status.Error(codes.InvalidArgument, "Target must be specified")
 	}
@@ -347,19 +351,18 @@ func (a *Acquirer) policy(target string, mode Mode) (*Policy, error) {
 		return nil, status.Errorf(codes.NotFound, "unsupported Target %q", target)
 	}
 	if mode != "" && p.Mode != mode {
-		// Enroll for a Target in retrieve mode, or Retrieve for one in enroll mode,
-		// is a malformed request, not a permission failure
+		// Enroll for a Target in retrieve mode, or Retrieve in enroll mode, is a
+		// malformed request, not a permission failure
 		return nil, status.Errorf(codes.InvalidArgument, "Target %q is served in %s mode", target, p.Mode)
 	}
 	return p, nil
 }
 
 // servesCredentialType checks a Credential Type against the policy: one that
-// is not a Credential Type of TACRA is invalid; one the policy does not support for
-// the Target is refused with Unimplemented, the gRPC code of a feature not
-// supported in this service, and the response
-// names the ones supported.
-func (p *Policy) servesCredentialType(credentialType string) error {
+// is not a Credential Type of TACRA is invalid; one the policy does not support
+// for the Target is refused with Unimplemented, the gRPC code of a feature not
+// supported in this service, and the response names the ones supported.
+func (p *Policy) servesCredentialType(credentialType CredentialType) error {
 	if credentialType == "" {
 		return nil
 	}
@@ -368,9 +371,18 @@ func (p *Policy) servesCredentialType(credentialType string) error {
 	}
 	if len(p.CredentialTypes) > 0 && !slices.Contains(p.CredentialTypes, credentialType) {
 		return status.Errorf(codes.Unimplemented, "Credential Type %q is not supported for Target %q; supported: %s",
-			credentialType, p.Name, strings.Join(p.CredentialTypes, ", "))
+			credentialType, p.Name, joinCredentialTypes(p.CredentialTypes))
 	}
 	return nil
+}
+
+// joinCredentialTypes lists Credential Types for a message.
+func joinCredentialTypes(types []CredentialType) string {
+	names := make([]string, 0, len(types))
+	for _, t := range types {
+		names = append(names, string(t))
+	}
+	return strings.Join(names, ", ")
 }
 
 func checkBinding(method, hash string) error {
@@ -381,7 +393,7 @@ func checkBinding(method, hash string) error {
 	return nil
 }
 
-func (a *Acquirer) consumeSession(kind FreshnessKind, element []byte, target, credentialType, hint, entryID, agentID string) error {
+func (a *Acquirer) consumeSession(kind FreshnessKind, element []byte, target string, credentialType CredentialType, hint, entryID, agentID string) error {
 	if kind != FreshnessPresentNonce {
 		return status.Errorf(codes.InvalidArgument, "Freshness Kind %q differs from %s, the kind named at initiation", kind, FreshnessPresentNonce)
 	}

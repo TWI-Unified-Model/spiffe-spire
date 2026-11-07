@@ -18,7 +18,7 @@ import (
 // ErrVaultUnavailable is the Secret Vault not answering.
 var ErrVaultUnavailable = errors.New("the Secret Vault is unavailable")
 
-// A secretVaultKind is one kind of Secret Vault this Server is the conduit to:
+// secretVaultKind is the kind of Secret Vault this Server is the conduit to:
 // how it forwards the initiate and the retrieve parts of the flow. The
 // configuration names the kind; the kinds are listed in secretVaultKinds, and
 // another kind is a new type there. The rest of the Server sees a secretVault.
@@ -38,15 +38,14 @@ type secretVaultKind interface {
 // Encryption Key of the Workload. The Server forwards both the initiate and
 // the retrieve parts of the flow.
 type secretVault interface {
-	Initiate(ctx context.Context, target, credentialType, hint string) (*vaultInitiation, []byte, error)
+	Initiate(ctx context.Context, target string, credentialType CredentialType, hint string) (*vaultInitiation, []byte, error)
 	Retrieve(ctx context.Context, req *vaultRetrieval) ([]byte, error)
 }
 
 // secretVaultKinds lists the kinds: json, the one kind for now.
 var secretVaultKinds = []secretVaultKind{jsonVaultKind{}}
 
-// defaultSecretVaultKind is the kind of a Secret Vault whose configuration
-// names none.
+// defaultSecretVaultKind is used in the absence of configuration.
 const defaultSecretVaultKind = "json"
 
 func secretVaultKindNamed(name string) (secretVaultKind, bool) {
@@ -73,9 +72,9 @@ func newSecretVault(c *Config) (secretVault, error) {
 	if c.SecretVault == nil {
 		return nil, nil
 	}
-	kind, ok := secretVaultKindNamed(c.SecretVault.Kind)
+	kind, ok := secretVaultKindNamed(c.SecretVault.SecretVaultKind)
 	if !ok {
-		return nil, fmt.Errorf("secret_vault: kind %q is not one of %s", c.SecretVault.Kind, secretVaultKindNames())
+		return nil, fmt.Errorf("secret_vault: kind %q is not one of %s", c.SecretVault.SecretVaultKind, secretVaultKindNames())
 	}
 	certPath, keyPath := c.ClientCertPath, c.ClientKeyPath
 	if c.SecretVault.ClientCertPath != "" || c.SecretVault.ClientKeyPath != "" {
@@ -88,8 +87,8 @@ func newSecretVault(c *Config) (secretVault, error) {
 	return kind.New(c.SecretVault, tc)
 }
 
-// vaultRefusal is a refusal of the Secret Vault: its HTTP status and the
-// error code and detail it answers with.
+// vaultRefusal is a refusal of the Secret Vault: its HTTP status, the error
+// code and detail it responds with.
 type vaultRefusal struct {
 	Status int
 	Code   string
@@ -101,28 +100,28 @@ func (e *vaultRefusal) Error() string { return fmt.Sprintf("Secret Vault: %s: %s
 // vaultInitiation is what the Secret Vault answers at initiation, a byte
 // string as unpadded base64url.
 type vaultInitiation struct {
-	FreshnessKind FreshnessKind `json:"freshness_kind"`
-	Handle        string        `json:"handle,omitempty"`
-	ExpiresIn     int           `json:"expires_in,omitempty"`
-	MaxAge        int           `json:"max_age,omitempty"`
-	Mode          Mode          `json:"mode"`
-	AcceptableCSK []string      `json:"acceptable_csk,omitempty"`
-	AcceptableCEK []string      `json:"acceptable_cek,omitempty"`
+	FreshnessKind    FreshnessKind             `json:"freshness_kind"`
+	Handle           string                    `json:"handle,omitempty"`
+	ExpiresInSeconds int                       `json:"expires_in,omitempty"` // the lifetime of the Handle, in seconds
+	MaxAgeSeconds    int                       `json:"max_age,omitempty"`    // how old the Evidence may be, in seconds
+	Mode             CredentialAcquisitionMode `json:"mode"`
+	AcceptableCSK    []string                  `json:"acceptable_csk,omitempty"`
+	AcceptableCEK    []string                  `json:"acceptable_cek,omitempty"`
 }
 
 // vaultRetrieval is the attest-retrieve request as the conduit forwards it
 // to the Secret Vault: the retrieve part of the flow, with the Evidence and
 // CEKpub.
 type vaultRetrieval struct {
-	FreshnessKind  FreshnessKind `json:"freshness_kind"`
-	Target         string        `json:"target"`
-	CredentialType string        `json:"credential_type,omitempty"`
-	Handle         string        `json:"handle,omitempty"`
-	CredentialHint string        `json:"credential_hint,omitempty"`
-	Evidence       string        `json:"evidence,omitempty"` // Background Check: the Evidence of the Attester, as it sent it
-	Profile        string        `json:"profile,omitempty"`  // Background Check: the media type of the Evidence
-	EAR            string        `json:"ear,omitempty"`      // Passport: the Attestation Results the Server obtained
-	CEKPub         string        `json:"cek_pub"`
+	FreshnessKind  FreshnessKind  `json:"freshness_kind"`
+	Target         string         `json:"target"`
+	CredentialType CredentialType `json:"credential_type,omitempty"`
+	Handle         string         `json:"handle,omitempty"`
+	CredentialHint string         `json:"credential_hint,omitempty"`
+	Evidence       string         `json:"evidence,omitempty"` // Background Check: the Evidence of the Attester, as it sent it
+	Profile        string         `json:"profile,omitempty"`  // Background Check: the media type of the Evidence
+	EAR            string         `json:"ear,omitempty"`      // Passport: the Attestation Results the Server obtained
+	CEKPub         string         `json:"cek_pub"`
 }
 
 // jsonVaultKind is the kind of Secret Vault of the proof of concept: the TACRA
@@ -153,10 +152,10 @@ type jsonVault struct {
 	client *http.Client
 }
 
-func (v *jsonVault) Initiate(ctx context.Context, target, credentialType, hint string) (*vaultInitiation, []byte, error) {
+func (v *jsonVault) Initiate(ctx context.Context, target string, credentialType CredentialType, hint string) (*vaultInitiation, []byte, error) {
 	body := map[string]string{"target": target}
 	if credentialType != "" {
-		body["credential_type"] = credentialType
+		body["credential_type"] = string(credentialType)
 	}
 	if hint != "" {
 		body["credential_hint"] = hint

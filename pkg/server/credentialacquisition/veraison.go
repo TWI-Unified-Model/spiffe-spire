@@ -21,11 +21,11 @@ import (
 	"github.com/go-jose/go-jose/v4"
 )
 
-// veraisonKind is the kind of Verifier of the proof of concept: Veraison. The
-// Server opens a session of its challenge-response API with the binding value
-// as the nonce and posts the Evidence to it. The Attestation Results are an
-// EAR (RFC 9711 EAT in a JWT signed ES256) under a key provisioned here, never
-// fetched, with the claims of one platform family under an EAR submodule.
+// veraisonKind corresponds to the Veraison Verifier. The Server opens a
+// session of its challenge-response API with the binding value as the nonce
+// and posts the Evidence to it. The Attestation Results are an EAR (RFC 9711
+// EAT in a JWT signed ES256) under a key provisioned here, never fetched, with
+// the claims of one platform family under an EAR submodule.
 type veraisonKind struct{}
 
 // earProfile is how an EAR names its own format, in eat_profile. Attestation

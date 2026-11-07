@@ -64,7 +64,7 @@ type resultsWindow struct {
 	now    func() time.Time
 }
 
-// verifierKinds lists the kinds: veraison, the one kind for now.
+// verifierKinds lists the kinds: the Veraison kind, veraison, the one kind for now.
 var verifierKinds = []verifierKind{veraisonKind{}}
 
 // defaultVerifierKind is the kind of a Verifier whose configuration names
@@ -94,9 +94,9 @@ func verifierKindNames() string {
 func newVerifiers(c *Config, window resultsWindow) (map[string]verifierClient, error) {
 	verifiers := make(map[string]verifierClient, len(c.Verifier))
 	for name, v := range c.Verifier {
-		kind, ok := verifierKindNamed(v.Kind)
+		kind, ok := verifierKindNamed(v.VerifierKind)
 		if !ok {
-			return nil, fmt.Errorf("configuring Verifier %q: kind %q is not one of %s", name, v.Kind, verifierKindNames())
+			return nil, fmt.Errorf("configuring Verifier %q: kind %q is not one of %s", name, v.VerifierKind, verifierKindNames())
 		}
 		tc, err := clientTLS(v.CAPath, c.ClientCertPath, c.ClientKeyPath)
 		if err != nil {

@@ -20,9 +20,9 @@ const handleSize = 32
 type session struct {
 	kind           FreshnessKind
 	target         string
-	credentialType string
+	credentialType CredentialType
 	hint           string
-	mode           Mode
+	mode           CredentialAcquisitionMode
 	entryID        string
 	agentID        string
 	expires        time.Time
@@ -31,7 +31,7 @@ type session struct {
 // Refusals of the second call of an exchange.
 var (
 	ErrUnknownHandle = errors.New("no initiation returned this Handle, or it expired")
-	ErrNotCorrelated = errors.New("the Target, the Freshness Kind, the Workload or the Agent differ from the initiation, or a Credential Type or Credential Hint it named is not repeated")
+	ErrNotCorrelated = errors.New("the Handle was not returned by an initiation for this Target, Freshness Kind, Workload and Agent, or a Credential Type or Credential Hint named at initiation is not repeated")
 )
 
 // sessions keeps the sessions by Handle, and forgets the expired ones.
@@ -92,7 +92,7 @@ func (s *sessions) remember(handle []byte, ss session) {
 // Agent attested at initiation. A present-nonce Handle is accepted once: the
 // second call that matches consumes the session, the Server forgets it, and a
 // later call with the same Handle is refused with ErrUnknownHandle.
-func (s *sessions) consume(handle []byte, kind FreshnessKind, target, credentialType, hint, entryID, agentID string) (session, error) {
+func (s *sessions) consume(handle []byte, kind FreshnessKind, target string, credentialType CredentialType, hint, entryID, agentID string) (session, error) {
 	key := hex.EncodeToString(handle)
 	s.mu.Lock()
 	defer s.mu.Unlock()

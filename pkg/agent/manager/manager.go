@@ -111,7 +111,7 @@ type Manager interface {
 
 	// InitiateCredentialAcquisition, EnrollCredential and RetrieveCredential
 	// forward the Workload API calls for attested credential acquisition
-	// (TACRA) for the registration entry to the Server, which issues the
+	// (TACRA) for the registration entry to the Server. The Server issues the
 	// Freshness Handle, appraises the Evidence and mints or releases the
 	// credential. The entry names the identity the Workload is entitled to.
 	InitiateCredentialAcquisition(ctx context.Context, entry *common.RegistrationEntry, req *credentialacquisitionv1.InitiateCredentialAcquisitionRequest) (*credentialacquisitionv1.InitiateCredentialAcquisitionResponse, error)

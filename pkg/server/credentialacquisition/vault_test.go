@@ -38,11 +38,11 @@ func newMockVault(t *testing.T) *mockVault {
 			return
 		}
 		_ = json.NewEncoder(w).Encode(vaultInitiation{
-			FreshnessKind: FreshnessPresentNonce,
-			Handle:        base64.RawURLEncoding.EncodeToString(f.handle),
-			ExpiresIn:     120,
-			Mode:          ModeRetrieve,
-			AcceptableCEK: []string{"DHKEM(P-256, HKDF-SHA256)+HKDF-SHA256+AES-256-GCM"},
+			FreshnessKind:    FreshnessPresentNonce,
+			Handle:           base64.RawURLEncoding.EncodeToString(f.handle),
+			ExpiresInSeconds: 120,
+			Mode:             ModeRetrieve,
+			AcceptableCEK:    []string{"DHKEM(P-256, HKDF-SHA256)+HKDF-SHA256+AES-256-GCM"},
 		})
 	})
 	mux.HandleFunc("POST /tacra/v1/retrieve", func(w http.ResponseWriter, r *http.Request) {
@@ -81,7 +81,7 @@ func TestVaultClient(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, f.handle, handle)
 		require.Equal(t, ModeRetrieve, vi.Mode)
-		require.Equal(t, 120, vi.ExpiresIn)
+		require.Equal(t, 120, vi.ExpiresInSeconds)
 		require.Equal(t, map[string]string{"target": "https://api.example", "credential_type": "jwt", "credential_hint": "billing"}, f.lastInitiate)
 	})
 	t.Run("initiate omits what the Workload omitted", func(t *testing.T) {

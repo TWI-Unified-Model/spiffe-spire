@@ -104,8 +104,8 @@ func (s *Service) InitiateCredentialAcquisition(ctx context.Context, req *creden
 		Mode:               modeFromName(result.Mode),
 		FreshnessKind:      freshnessKindFromName(result.FreshnessKind),
 		FreshnessHandle:    result.Handle,
-		ExpiresIn:          result.ExpiresIn,
-		MaxAge:             result.MaxAge,
+		ExpiresIn:          result.ExpiresInSeconds,
+		MaxAge:             result.MaxAgeSeconds,
 		AcceptableCsk:      result.AcceptableCSK,
 		AcceptableCek:      result.AcceptableCEK,
 		AcceptableEvidence: result.AcceptableEvidence,
@@ -130,7 +130,7 @@ func (s *Service) EnrollCredential(ctx context.Context, req *credentialacquisiti
 	case len(req.Evidence) == 0:
 		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing Evidence", nil)
 	case req.Binding == nil:
-		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing binding", nil)
+		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing Binding", nil)
 	}
 
 	if err := rpccontext.RateLimit(ctx, 1); err != nil {
@@ -213,11 +213,11 @@ func (s *Service) RetrieveCredential(ctx context.Context, req *credentialacquisi
 
 	switch {
 	case len(req.CekPub) == 0:
-		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing cek_pub", nil)
+		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing CEKpub", nil)
 	case len(req.Evidence) == 0:
 		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing Evidence", nil)
 	case req.Binding == nil:
-		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing binding", nil)
+		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing Binding", nil)
 	}
 
 	entry, agentID, err := s.authorizedEntry(ctx, log, req.EntryId)
@@ -276,22 +276,22 @@ func (s *Service) authorizedEntry(ctx context.Context, log logrus.FieldLogger, e
 
 // The names of the values of the enums of the Server API.
 
-func credentialTypeName(t types.CredentialType) string {
+func credentialTypeName(t types.CredentialType) credentialacquisition.CredentialType {
 	switch t {
 	case types.CredentialType_CREDENTIAL_TYPE_X509:
-		return "x509"
+		return credentialacquisition.CredentialTypeX509
 	case types.CredentialType_CREDENTIAL_TYPE_WIC:
-		return "wic"
+		return credentialacquisition.CredentialTypeWIC
 	case types.CredentialType_CREDENTIAL_TYPE_WIT:
-		return "wit"
+		return credentialacquisition.CredentialTypeWIT
 	case types.CredentialType_CREDENTIAL_TYPE_JWT:
-		return "jwt"
+		return credentialacquisition.CredentialTypeJWT
 	case types.CredentialType_CREDENTIAL_TYPE_API_KEY:
-		return "api-key"
+		return credentialacquisition.CredentialTypeAPIKey
 	case types.CredentialType_CREDENTIAL_TYPE_PSK:
-		return "psk"
+		return credentialacquisition.CredentialTypePSK
 	case types.CredentialType_CREDENTIAL_TYPE_PRIVATE_KEY:
-		return "private-key"
+		return credentialacquisition.CredentialTypePrivateKey
 	default:
 		return ""
 	}
@@ -331,7 +331,7 @@ func freshnessKindFromName(k credentialacquisition.FreshnessKind) types.Freshnes
 	}
 }
 
-func modeFromName(m credentialacquisition.Mode) types.CredentialAcquisitionMode {
+func modeFromName(m credentialacquisition.CredentialAcquisitionMode) types.CredentialAcquisitionMode {
 	switch m {
 	case credentialacquisition.ModeEnroll:
 		return types.CredentialAcquisitionMode_CREDENTIAL_ACQUISITION_MODE_ENROLL

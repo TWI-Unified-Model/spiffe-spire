@@ -105,8 +105,8 @@ func parsePlatformRule(raw []byte, modules []platformModule) (*PlatformRule, err
 	return p, nil
 }
 
-// Check hands verified Attestation Results to the rule for their family. A
-// family the rule has no entry for is refused, not passed.
+// Check maps verified Attestation Results to the rule for their family. A
+// family for which no rule exists is refused, not passed.
 func (p *PlatformRule) Check(res *attestationResults) ([]string, error) {
 	rule, ok := p.byFamily[res.Family]
 	if !ok {
@@ -138,7 +138,7 @@ func (*snpModule) Family() string { return familySEVSNP }
 func (m *snpModule) ParseRule(raw json.RawMessage) (familyRule, error) {
 	r := &SNPRule{products: m.products}
 	if err := decodeEntry(raw, r); err != nil {
-		return nil, fmt.Errorf("platform rule: sevsnp: %w", err)
+		return nil, fmt.Errorf("platform rule: SEV-SNP: %w", err)
 	}
 	if err := r.validate(); err != nil {
 		return nil, err
@@ -493,7 +493,7 @@ func (tdxModule) Family() string { return familyTDX }
 func (tdxModule) ParseRule(raw json.RawMessage) (familyRule, error) {
 	var r TDXRule
 	if err := decodeEntry(raw, &r); err != nil {
-		return nil, fmt.Errorf("platform rule: tdx: %w", err)
+		return nil, fmt.Errorf("platform rule: TDX: %w", err)
 	}
 	if _, err := parseMask(r.AttributesRefused); err != nil {
 		return nil, err
