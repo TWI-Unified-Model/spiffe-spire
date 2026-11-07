@@ -23,6 +23,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	"github.com/spiffe/go-spiffe/v2/svid/jwtsvid"
 	"github.com/spiffe/go-spiffe/v2/svid/x509svid"
+	credentialacquisitionv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/credentialacquisition/v1"
 	"github.com/spiffe/spire/pkg/agent/api/rpccontext"
 	"github.com/spiffe/spire/pkg/agent/client"
 	"github.com/spiffe/spire/pkg/agent/endpoints/workload"
@@ -2313,6 +2314,11 @@ type testParams struct {
 	AllowUnauthenticatedVerifiers bool
 	AllowedForeignJWTClaims       map[string]struct{}
 	RateLimiter                   workload.RateLimiter
+	InitiateResponse              *credentialacquisitionv1.InitiateCredentialAcquisitionResponse
+	EnrollResponse                *credentialacquisitionv1.EnrollCredentialResponse
+	RetrieveResponse              *credentialacquisitionv1.RetrieveCredentialResponse
+	CredentialAcquisitionErr      error
+	CredentialAcquisitionCalls    *credentialAcquisitionCalls
 }
 
 func runTest(t *testing.T, params testParams, fn func(ctx context.Context, client workloadPB.SpiffeWorkloadAPIClient)) {
@@ -2325,6 +2331,12 @@ func runTest(t *testing.T, params testParams, fn func(ctx context.Context, clien
 		witUpdates:               params.WITUpdates,
 		entriesAndBundlesUpdates: params.EntriesAndBundlesUpdates,
 		err:                      params.ManagerErr,
+
+		initiateResp:               params.InitiateResponse,
+		enrollResp:                 params.EnrollResponse,
+		retrieveResp:               params.RetrieveResponse,
+		credentialAcquisitionErr:   params.CredentialAcquisitionErr,
+		credentialAcquisitionCalls: params.CredentialAcquisitionCalls,
 	}
 
 	handler := workload.New(workload.Config{
@@ -2373,6 +2385,50 @@ type FakeManager struct {
 	entriesAndBundlesUpdates []*cache.EntriesAndBundlesUpdate
 	subscribers              atomic.Int32
 	err                      error
+
+	initiateResp               *credentialacquisitionv1.InitiateCredentialAcquisitionResponse
+	enrollResp                 *credentialacquisitionv1.EnrollCredentialResponse
+	retrieveResp               *credentialacquisitionv1.RetrieveCredentialResponse
+	credentialAcquisitionErr   error
+	credentialAcquisitionCalls *credentialAcquisitionCalls
+}
+
+// credentialAcquisitionCalls records what the handler forwarded to the
+// manager for the attested credential acquisition calls.
+type credentialAcquisitionCalls struct {
+	entryIDs []string
+	requests []any
+}
+
+func (m *FakeManager) recordCredentialAcquisition(entry *common.RegistrationEntry, req any) {
+	if m.credentialAcquisitionCalls != nil {
+		m.credentialAcquisitionCalls.entryIDs = append(m.credentialAcquisitionCalls.entryIDs, entry.EntryId)
+		m.credentialAcquisitionCalls.requests = append(m.credentialAcquisitionCalls.requests, req)
+	}
+}
+
+func (m *FakeManager) InitiateCredentialAcquisition(_ context.Context, entry *common.RegistrationEntry, req *credentialacquisitionv1.InitiateCredentialAcquisitionRequest) (*credentialacquisitionv1.InitiateCredentialAcquisitionResponse, error) {
+	m.recordCredentialAcquisition(entry, req)
+	if m.credentialAcquisitionErr != nil {
+		return nil, m.credentialAcquisitionErr
+	}
+	return m.initiateResp, nil
+}
+
+func (m *FakeManager) EnrollCredential(_ context.Context, entry *common.RegistrationEntry, req *credentialacquisitionv1.EnrollCredentialRequest) (*credentialacquisitionv1.EnrollCredentialResponse, error) {
+	m.recordCredentialAcquisition(entry, req)
+	if m.credentialAcquisitionErr != nil {
+		return nil, m.credentialAcquisitionErr
+	}
+	return m.enrollResp, nil
+}
+
+func (m *FakeManager) RetrieveCredential(_ context.Context, entry *common.RegistrationEntry, req *credentialacquisitionv1.RetrieveCredentialRequest) (*credentialacquisitionv1.RetrieveCredentialResponse, error) {
+	m.recordCredentialAcquisition(entry, req)
+	if m.credentialAcquisitionErr != nil {
+		return nil, m.credentialAcquisitionErr
+	}
+	return m.retrieveResp, nil
 }
 
 func (m *FakeManager) MatchingRegistrationEntries([]*common.Selector) []*common.RegistrationEntry {

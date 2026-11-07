@@ -212,5 +212,10 @@ func RateLimits(config RateLimitConfig) map[string]api.RateLimiter {
 		"/grpc.health.v1.Health/Check":                                                   noLimit,
 		"/grpc.health.v1.Health/List":                                                    noLimit,
 		"/grpc.health.v1.Health/Watch":                                                   noLimit,
+
+		// Attested credential acquisition (TACRA): enrollment signs an X509-SVID, as BatchNewX509SVID does.
+		"/spire.api.server.credentialacquisition.v1.CredentialAcquisition/InitiateCredentialAcquisition": noLimit,
+		"/spire.api.server.credentialacquisition.v1.CredentialAcquisition/EnrollCredential":              csrLimit,
+		"/spire.api.server.credentialacquisition.v1.CredentialAcquisition/RetrieveCredential":            noLimit,
 	}
 }

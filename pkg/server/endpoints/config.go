@@ -12,12 +12,14 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	credentialacquisitionv1pb "github.com/spiffe/spire-api-sdk/proto/spire/api/server/credentialacquisition/v1"
 	"github.com/spiffe/spire/pkg/common/bundleutil"
 	"github.com/spiffe/spire/pkg/common/telemetry"
 	"github.com/spiffe/spire/pkg/common/tlspolicy"
 	"github.com/spiffe/spire/pkg/server/api"
 	agentv1 "github.com/spiffe/spire/pkg/server/api/agent/v1"
 	bundlev1 "github.com/spiffe/spire/pkg/server/api/bundle/v1"
+	credentialacquisitionv1 "github.com/spiffe/spire/pkg/server/api/credentialacquisition/v1"
 	debugv1 "github.com/spiffe/spire/pkg/server/api/debug/v1"
 	entryv1 "github.com/spiffe/spire/pkg/server/api/entry/v1"
 	healthv1 "github.com/spiffe/spire/pkg/server/api/health/v1"
@@ -31,6 +33,7 @@ import (
 	"github.com/spiffe/spire/pkg/server/ca/manager"
 	"github.com/spiffe/spire/pkg/server/cache/dscache"
 	"github.com/spiffe/spire/pkg/server/catalog"
+	"github.com/spiffe/spire/pkg/server/credentialacquisition"
 	"github.com/spiffe/spire/pkg/server/endpoints/bundle"
 	"github.com/spiffe/spire/pkg/server/svid"
 )
@@ -63,6 +66,10 @@ type Config struct {
 
 	// Makes policy decisions
 	AuthPolicyEngine *authpolicy.Engine
+
+	// CredentialAcquisition is the Credential Acquisition System Server of
+	// TACRA behind the CredentialAcquisition API, when configured.
+	CredentialAcquisition *credentialacquisition.Acquirer
 
 	// The logger for the endpoints subsystem
 	Log logrus.FieldLogger
@@ -185,6 +192,7 @@ func (c *Config) makeAPIServers(entryFetcher api.AuthorizedEntryFetcher) APIServ
 			DataStore:         ds,
 			UpstreamPublisher: c.AuthorityManager,
 		}),
+		CredentialAcquisitionServer: c.makeCredentialAcquisitionServer(entryFetcher),
 		DebugServer: debugv1.New(debugv1.Config{
 			TrustDomain:  c.TrustDomain,
 			Clock:        c.Clock,
@@ -221,4 +229,18 @@ func (c *Config) makeAPIServers(entryFetcher api.AuthorizedEntryFetcher) APIServ
 			DataStore:   ds,
 		}),
 	}
+}
+
+// makeCredentialAcquisitionServer builds the CredentialAcquisition API
+// service when attested credential acquisition is configured, nil otherwise.
+func (c *Config) makeCredentialAcquisitionServer(entryFetcher api.AuthorizedEntryFetcher) credentialacquisitionv1pb.CredentialAcquisitionServer {
+	if c.CredentialAcquisition == nil {
+		return nil
+	}
+	return credentialacquisitionv1.New(credentialacquisitionv1.Config{
+		Acquirer:     c.CredentialAcquisition,
+		EntryFetcher: entryFetcher,
+		ServerCA:     c.ServerCA,
+		TrustDomain:  c.TrustDomain,
+	})
 }

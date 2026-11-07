@@ -26,6 +26,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	agentv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/agent/v1"
 	bundlev1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/bundle/v1"
+	credentialacquisitionv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/credentialacquisition/v1"
 	debugv1_pb "github.com/spiffe/spire-api-sdk/proto/spire/api/server/debug/v1"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	localauthorityv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/localauthority/v1"
@@ -122,6 +123,9 @@ type APIServers struct {
 	SVIDServer           svidv1.SVIDServer
 	TrustDomainServer    trustdomainv1.TrustDomainServer
 	LocalAUthorityServer localauthorityv1.LocalAuthorityServer
+
+	// CredentialAcquisitionServer serves attested credential acquisition when configured.
+	CredentialAcquisitionServer credentialacquisitionv1.CredentialAcquisitionServer
 }
 
 // RateLimitConfig holds rate limiting configurations.
@@ -268,6 +272,10 @@ func (e *Endpoints) ListenAndServe(ctx context.Context) error {
 	trustdomainv1.RegisterTrustDomainServer(udsServer, e.APIServers.TrustDomainServer)
 	localauthorityv1.RegisterLocalAuthorityServer(tcpServer, e.APIServers.LocalAUthorityServer)
 	localauthorityv1.RegisterLocalAuthorityServer(udsServer, e.APIServers.LocalAUthorityServer)
+	if e.APIServers.CredentialAcquisitionServer != nil {
+		credentialacquisitionv1.RegisterCredentialAcquisitionServer(tcpServer, e.APIServers.CredentialAcquisitionServer)
+		credentialacquisitionv1.RegisterCredentialAcquisitionServer(udsServer, e.APIServers.CredentialAcquisitionServer)
+	}
 
 	// UDS only
 	loggerv1.RegisterLoggerServer(udsServer, e.APIServers.LoggerServer)
