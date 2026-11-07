@@ -228,10 +228,11 @@ func (h *Handler) credentialAcquisitionEntry(ctx context.Context, log logrus.Fie
 // credentialAcquisitionError logs a refused or failed call and returns the
 // status the Workload sees. When the Server refused the call for a reason the
 // Workload can act on (TACRA names those reasons) or failed inside, the status
-// carries the code of the Server. Otherwise the call did not complete between
-// the Agent and the Server, the connection was lost or the deadline passed, and
-// the status is Unavailable: the code is one of the gRPC transport, not a
-// refusal.
+// carries the code of the Server. Otherwise the status is Unavailable: the
+// Server could not complete the call because its Verifier or its Secret Vault
+// did not answer, the call did not complete between the Agent and the Server
+// because the connection was lost or the deadline passed, or the Server
+// refused the Agent itself; none of these is a refusal the Workload can act on.
 func credentialAcquisitionError(log logrus.FieldLogger, msg string, err error) error {
 	log.WithError(err).Error(msg)
 	var se interface{ GRPCStatus() *status.Status }

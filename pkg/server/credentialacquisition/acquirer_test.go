@@ -194,7 +194,7 @@ func TestEnroll(t *testing.T) {
 		_, err := x.a.Enroll(ctx, e)
 		requireStatus(t, err, codes.InvalidArgument, "a Credential Type or Credential Hint named at initiation is not repeated")
 	})
-	t.Run("the binding must name binding-input and sha512", func(t *testing.T) {
+	t.Run("the Binding must name binding-input and sha512", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
 		e := enrollment(handle)
 		e.BindingHash = "sha256"

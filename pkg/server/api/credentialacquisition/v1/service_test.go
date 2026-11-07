@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	credentialacquisitionv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/credentialacquisition/v1"
@@ -277,7 +276,6 @@ func TestEnrollCredential(t *testing.T) {
 			}
 		}
 		require.True(t, audited, "the enrollment is audited")
-		_ = logrus.InfoLevel
 	})
 }
 

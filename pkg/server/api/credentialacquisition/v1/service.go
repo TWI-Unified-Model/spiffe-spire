@@ -99,6 +99,11 @@ func (s *Service) InitiateCredentialAcquisition(ctx context.Context, req *creden
 		"freshness_kind": result.FreshnessKind,
 	})
 	rpccontext.AuditRPC(ctx)
+	log.WithFields(logrus.Fields{
+		"mode":           result.Mode,
+		"freshness_kind": result.FreshnessKind,
+		"expires_in":     result.ExpiresInSeconds,
+	}).Debug("Initiated an attested credential acquisition")
 
 	return &credentialacquisitionv1.InitiateCredentialAcquisitionResponse{
 		Mode:               modeFromName(result.Mode),
@@ -189,7 +194,7 @@ func (s *Service) EnrollCredential(ctx context.Context, req *credentialacquisiti
 		telemetry.SerialNumber: x509Svid[0].SerialNumber.String(),
 		"verifier":             result.Verifier,
 		"measurement":          hex.EncodeToString(result.Measurement),
-	}).Info("Enrolled an attested X509-SVID")
+	}).Debug("Enrolled an attested X509-SVID")
 
 	return &credentialacquisitionv1.EnrollCredentialResponse{
 		Svid: &types.X509SVID{
@@ -248,7 +253,10 @@ func (s *Service) RetrieveCredential(ctx context.Context, req *credentialacquisi
 		return nil, commonapi.MakeErr(log, status.Code(err), "failed to retrieve credential", err)
 	}
 	rpccontext.AuditRPC(ctx)
-	log.Info("Retrieved an attested credential bundle")
+	log.WithFields(logrus.Fields{
+		"target":          req.Target,
+		"credential_type": credentialTypeName(req.CredentialType),
+	}).Debug("Retrieved an attested credential bundle")
 
 	return &credentialacquisitionv1.RetrieveCredentialResponse{EncryptedCredentialBundle: container}, nil
 }

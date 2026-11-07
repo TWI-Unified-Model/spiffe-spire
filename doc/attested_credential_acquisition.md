@@ -293,6 +293,8 @@ line comes from.
   calls use. A success is logged at debug with the fields of the result.
 - The Server API: `MakeErr` logs and returns every refusal; the audit fields of
   the call go through `AddRPCAuditFields`, and `AuditRPC` emits the audit line.
+  A success is logged at debug with the fields of the result, as `MintX509SVID`
+  does.
 - The Server package: a refusal is a gRPC status that names the reason, and is
   not logged again where it is returned. The package logs at warning what the
   status does not carry, Attestation Results refused and admissions under a
