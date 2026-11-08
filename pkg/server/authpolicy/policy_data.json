@@ -32,6 +32,18 @@
 			"allow_downstream": true
 		},
 		{
+			"full_method": "/spire.api.server.credentialacquisition.v1.CredentialAcquisition/InitiateCredentialAcquisition",
+			"allow_agent": true
+		},
+		{
+			"full_method": "/spire.api.server.credentialacquisition.v1.CredentialAcquisition/EnrollCredential",
+			"allow_agent": true
+		},
+		{
+			"full_method": "/spire.api.server.credentialacquisition.v1.CredentialAcquisition/RetrieveCredential",
+			"allow_agent": true
+		},
+		{
 			"full_method": "/spire.api.server.bundle.v1.Bundle/GetBundle",
 			"allow_any": true
 		},

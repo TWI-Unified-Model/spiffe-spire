@@ -16,6 +16,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	agentv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/agent/v1"
 	bundlev1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/bundle/v1"
+	credentialacquisitionv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/credentialacquisition/v1"
 	entryv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/entry/v1"
 	svidv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/svid/v1"
 	"github.com/spiffe/spire-api-sdk/proto/spire/api/types"
@@ -118,6 +119,14 @@ type Client interface {
 	NewJWTSVID(ctx context.Context, entryID string, audience []string, hasCacheHit bool) (*JWTSVID, spiffeid.ID, error)
 	NewWITSVIDs(ctx context.Context, publicKeys map[string]crypto.PublicKey, signatureAlgorithm string) (map[string]*WITSVID, error)
 	PostStatus(ctx context.Context, agentVersion string) error
+
+	// InitiateCredentialAcquisition, EnrollCredential and RetrieveCredential
+	// forward the Workload API calls for attested credential acquisition
+	// (TACRA) to the Server, for the registration entry the request names.
+	// The error of a refused call carries the gRPC status returned by the Server.
+	InitiateCredentialAcquisition(ctx context.Context, req *credentialacquisitionv1.InitiateCredentialAcquisitionRequest) (*credentialacquisitionv1.InitiateCredentialAcquisitionResponse, error)
+	EnrollCredential(ctx context.Context, req *credentialacquisitionv1.EnrollCredentialRequest) (*credentialacquisitionv1.EnrollCredentialResponse, error)
+	RetrieveCredential(ctx context.Context, req *credentialacquisitionv1.RetrieveCredentialRequest) (*credentialacquisitionv1.RetrieveCredentialResponse, error)
 
 	// Release releases any resources that were held by this Client, if any.
 	Release()
@@ -867,6 +876,84 @@ func (c *client) newBundleClient() (bundlev1.BundleClient, *nodeConn, error) {
 		return nil, nil, err
 	}
 	return bundlev1.NewBundleClient(conn.Conn()), conn, nil
+}
+
+// InitiateCredentialAcquisition forwards Initiate-Credential-Acquisition to
+// the server.
+func (c *client) InitiateCredentialAcquisition(ctx context.Context, req *credentialacquisitionv1.InitiateCredentialAcquisitionRequest) (*credentialacquisitionv1.InitiateCredentialAcquisitionResponse, error) {
+	c.c.RotMtx.RLock()
+	defer c.c.RotMtx.RUnlock()
+
+	ctx, cancel := context.WithTimeout(ctx, rpcTimeout)
+	defer cancel()
+
+	caClient, connection, err := c.newCredentialAcquisitionClient()
+	if err != nil {
+		return nil, err
+	}
+	defer connection.Release()
+
+	resp, err := caClient.InitiateCredentialAcquisition(ctx, req)
+	if err != nil {
+		c.release(connection)
+		c.withErrorFields(err).Error("Failed to initiate credential acquisition")
+		return nil, fmt.Errorf("failed to initiate credential acquisition: %w", err)
+	}
+	return resp, nil
+}
+
+// EnrollCredential forwards Enroll-Credential to the server.
+func (c *client) EnrollCredential(ctx context.Context, req *credentialacquisitionv1.EnrollCredentialRequest) (*credentialacquisitionv1.EnrollCredentialResponse, error) {
+	c.c.RotMtx.RLock()
+	defer c.c.RotMtx.RUnlock()
+
+	ctx, cancel := context.WithTimeout(ctx, rpcTimeout)
+	defer cancel()
+
+	caClient, connection, err := c.newCredentialAcquisitionClient()
+	if err != nil {
+		return nil, err
+	}
+	defer connection.Release()
+
+	resp, err := caClient.EnrollCredential(ctx, req)
+	if err != nil {
+		c.release(connection)
+		c.withErrorFields(err).Error("Failed to enroll credential")
+		return nil, fmt.Errorf("failed to enroll credential: %w", err)
+	}
+	return resp, nil
+}
+
+// RetrieveCredential forwards Retrieve-Credential to the server.
+func (c *client) RetrieveCredential(ctx context.Context, req *credentialacquisitionv1.RetrieveCredentialRequest) (*credentialacquisitionv1.RetrieveCredentialResponse, error) {
+	c.c.RotMtx.RLock()
+	defer c.c.RotMtx.RUnlock()
+
+	ctx, cancel := context.WithTimeout(ctx, rpcTimeout)
+	defer cancel()
+
+	caClient, connection, err := c.newCredentialAcquisitionClient()
+	if err != nil {
+		return nil, err
+	}
+	defer connection.Release()
+
+	resp, err := caClient.RetrieveCredential(ctx, req)
+	if err != nil {
+		c.release(connection)
+		c.withErrorFields(err).Error("Failed to retrieve credential")
+		return nil, fmt.Errorf("failed to retrieve credential: %w", err)
+	}
+	return resp, nil
+}
+
+func (c *client) newCredentialAcquisitionClient() (credentialacquisitionv1.CredentialAcquisitionClient, *nodeConn, error) {
+	conn, err := c.getOrOpenConn()
+	if err != nil {
+		return nil, nil, err
+	}
+	return credentialacquisitionv1.NewCredentialAcquisitionClient(conn.Conn()), conn, nil
 }
 
 func (c *client) newSVIDClient() (svidv1.SVIDClient, *nodeConn, error) {

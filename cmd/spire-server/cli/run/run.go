@@ -43,6 +43,7 @@ import (
 	"github.com/spiffe/spire/pkg/server/authpolicy"
 	bundleClient "github.com/spiffe/spire/pkg/server/bundle/client"
 	"github.com/spiffe/spire/pkg/server/ca/manager"
+	"github.com/spiffe/spire/pkg/server/credentialacquisition"
 	"github.com/spiffe/spire/pkg/server/credtemplate"
 	"github.com/spiffe/spire/pkg/server/endpoints/bundle"
 	"github.com/spiffe/spire/pkg/server/plugin/keymanager"
@@ -129,6 +130,9 @@ type experimentalConfig struct {
 	Flags fflag.RawConfig `hcl:"feature_flags"`
 
 	NamedPipeName string `hcl:"named_pipe_name"`
+
+	// CredentialAcquisition configures attested credential acquisition (TACRA).
+	CredentialAcquisition *credentialacquisition.Config `hcl:"credential_acquisition"`
 
 	UnusedKeyPositions map[string][]token.Pos `hcl:",unusedKeyPositions"`
 }
@@ -829,6 +833,14 @@ func newServerConfig(c *Config, logOptions []log.Option, allowUnknownConfig, ski
 
 	sc.EventsBasedCache = c.Server.Experimental.EventsBasedCache
 	sc.AuthOpaPolicyEngineConfig = c.Server.Experimental.AuthOpaPolicyEngine
+
+	if c.Server.Experimental.CredentialAcquisition != nil {
+		if _, err := c.Server.Experimental.CredentialAcquisition.Validate(); err != nil {
+			return nil, err
+		}
+		sc.CredentialAcquisition = c.Server.Experimental.CredentialAcquisition
+		sc.Log.Info("Attested credential acquisition (TACRA) enabled")
+	}
 
 	for _, f := range c.Server.Experimental.Flags {
 		sc.Log.Warnf("Developer feature flag %q has been enabled", f)

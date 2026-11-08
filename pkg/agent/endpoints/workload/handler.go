@@ -17,6 +17,7 @@ import (
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
 	"github.com/spiffe/go-spiffe/v2/proto/spiffe/workload"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
+	credentialacquisitionv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/credentialacquisition/v1"
 	"github.com/spiffe/spire/pkg/agent/api/rpccontext"
 	"github.com/spiffe/spire/pkg/agent/client"
 	"github.com/spiffe/spire/pkg/agent/common/hintsfilter"
@@ -39,6 +40,9 @@ type Manager interface {
 	SubscribeToWITCacheChanges(ctx context.Context, key cache.Selectors) (cache.Subscriber[cache.WITWorkloadUpdate], error)
 	MatchingRegistrationEntries(selectors []*common.Selector) []*common.RegistrationEntry
 	FetchJWTSVID(ctx context.Context, entry *common.RegistrationEntry, audience []string) (*client.JWTSVID, error)
+	InitiateCredentialAcquisition(ctx context.Context, entry *common.RegistrationEntry, req *credentialacquisitionv1.InitiateCredentialAcquisitionRequest) (*credentialacquisitionv1.InitiateCredentialAcquisitionResponse, error)
+	EnrollCredential(ctx context.Context, entry *common.RegistrationEntry, req *credentialacquisitionv1.EnrollCredentialRequest) (*credentialacquisitionv1.EnrollCredentialResponse, error)
+	RetrieveCredential(ctx context.Context, entry *common.RegistrationEntry, req *credentialacquisitionv1.RetrieveCredentialRequest) (*credentialacquisitionv1.RetrieveCredentialResponse, error)
 	FetchEntriesAndBundles([]*common.Selector) *cache.EntriesAndBundlesUpdate
 	SubscribeToEntryAndBundleChanges(key cache.Selectors) cache.Subscriber[cache.EntriesAndBundlesUpdate]
 }
@@ -59,6 +63,10 @@ const (
 	MethodFetchJWTBundles  = "/SpiffeWorkloadAPI/FetchJWTBundles"
 	MethodFetchWITSVID     = "/SpiffeWorkloadAPI/FetchWITSVID"
 	MethodFetchWITBundles  = "/SpiffeWorkloadAPI/FetchWITBundles"
+
+	MethodInitiateCredentialAcquisition = "/SpiffeWorkloadAPI/InitiateCredentialAcquisition" //nolint:gosec // the name of an RPC method
+	MethodEnrollCredential              = "/SpiffeWorkloadAPI/EnrollCredential"              //nolint:gosec // the name of an RPC method
+	MethodRetrieveCredential            = "/SpiffeWorkloadAPI/RetrieveCredential"            //nolint:gosec // the name of an RPC method
 )
 
 type Config struct {

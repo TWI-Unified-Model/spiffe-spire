@@ -34,6 +34,7 @@ import (
 	"github.com/spiffe/spire/pkg/server/ca/manager"
 	"github.com/spiffe/spire/pkg/server/ca/rotator"
 	"github.com/spiffe/spire/pkg/server/catalog"
+	"github.com/spiffe/spire/pkg/server/credentialacquisition"
 	"github.com/spiffe/spire/pkg/server/credtemplate"
 	"github.com/spiffe/spire/pkg/server/credvalidator"
 	"github.com/spiffe/spire/pkg/server/datastore"
@@ -473,7 +474,16 @@ func (s *Server) newSVIDRotator(ctx context.Context, serverCA ca.ServerCA, metri
 }
 
 func (s *Server) newEndpointsServer(ctx context.Context, catalog catalog.Catalog, svidObserver svid.Observer, serverCA ca.ServerCA, metrics telemetry.Metrics, authorityManager manager.AuthorityManager, authPolicyEngine *authpolicy.Engine, bundleManager *bundle_client.Manager) (endpoints.Server, error) {
+	var acquirer *credentialacquisition.Acquirer
+	if s.config.CredentialAcquisition != nil {
+		var err error
+		acquirer, err = credentialacquisition.New(s.config.CredentialAcquisition, s.config.Log.WithField(telemetry.SubsystemName, "credential_acquisition"))
+		if err != nil {
+			return nil, err
+		}
+	}
 	config := endpoints.Config{
+		CredentialAcquisition:        acquirer,
 		TCPAddr:                      s.config.BindAddress,
 		LocalAddr:                    s.config.BindLocalAddress,
 		SVIDObserver:                 svidObserver,

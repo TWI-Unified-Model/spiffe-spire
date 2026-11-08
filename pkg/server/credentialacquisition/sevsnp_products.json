@@ -1,0 +1,34 @@
+{
+  "about": "The product data of AMD for the SEV-SNP platform module of the SPIRE Server: the product lines, the CPUID family and extended model that report each, and the byte of each component in TCB_VERSION. A product line without a layout is not decoded, so the platform rule refuses it. The file sevsnp_products_path names replaces this copy.",
+  "products": [
+    {
+      "name": "Milan",
+      "cpuid": [{"family": "0x19", "extended_model": "0x0"}],
+      "tcb_layout": {"bl": 0, "tee": 1, "snp": 6, "ucode": 7},
+      "source": "AMD 57230 Rev. 1.05, Table 4; AMD 56860 Rev. 1.59, Table 5"
+    },
+    {
+      "name": "Genoa",
+      "cpuid": [{"family": "0x19", "extended_model": "0x1"}],
+      "tcb_layout": {"bl": 0, "tee": 1, "snp": 6, "ucode": 7},
+      "source": "AMD 57230 Rev. 1.05, Table 4; AMD 56860 Rev. 1.59, Table 5"
+    },
+    {
+      "name": "Siena",
+      "cpuid": [{"family": "0x19", "extended_model": "0xA"}],
+      "tcb_layout": {"bl": 0, "tee": 1, "snp": 6, "ucode": 7},
+      "source": "AMD 57230 Rev. 1.05, Table 4; AMD 56860 Rev. 1.59, Table 5"
+    },
+    {
+      "name": "Turin",
+      "cpuid": [{"family": "0x1A", "extended_model": "0x0"}, {"family": "0x1A", "extended_model": "0x1"}],
+      "tcb_layout": {"fmc": 0, "bl": 1, "tee": 2, "snp": 3, "ucode": 7},
+      "source": "AMD 57230 Rev. 1.05, Table 4; AMD 56860 Rev. 1.59, Table 4"
+    },
+    {
+      "name": "Venice",
+      "cpuid": [{"family": "0x1A", "extended_model": "0x5"}],
+      "source": "AMD 57230 Rev. 1.05, Table 4; the layout of TCB_VERSION is not listed here, so Venice is not decoded"
+    }
+  ]
+}
