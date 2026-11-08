@@ -86,6 +86,10 @@ func TestConfigValidate(t *testing.T) {
 		}, err: `secret_vault: kind "grpc" is not one of json`},
 		{name: "vault without url", mutate: func(c *Config) { c.SecretVault = &SecretVaultConfig{} }, err: "secret_vault: url is required"},
 		{name: "ear_max_age malformed", mutate: func(c *Config) { c.EARMaxAge = "later" }, err: "ear_max_age"},
+		// A duration without its unit is refused when the configuration is read, so that minutes and seconds cannot be confused.
+		{name: "ear_max_age without a unit", mutate: func(c *Config) { c.EARMaxAge = "120" }, err: `ear_max_age: time: missing unit in duration "120"`},
+		{name: "ear_skew without a unit", mutate: func(c *Config) { c.EARSkew = "5" }, err: `ear_skew: time: missing unit in duration "5"`},
+		{name: "expires_in without a unit", mutate: func(c *Config) { c.Target["spiffe://example.org"].ExpiresIn = "300" }, err: `expires_in: time: missing unit in duration "300"`},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			c := validConfig()
