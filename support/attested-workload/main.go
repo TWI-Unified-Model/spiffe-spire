@@ -67,7 +67,7 @@ type result struct {
 	Mode               string    `json:"mode,omitempty"`
 	FreshnessKind      string    `json:"freshness_kind,omitempty"`
 	HandleHex          string    `json:"handle_hex,omitempty"`
-	ExpiresIn          uint32    `json:"expires_in,omitempty"`
+	ExpiresInSeconds   uint32    `json:"expires_in,omitempty"` // the lifetime of the Handle, in seconds, as the API carries it
 	AcceptableCSK      []string  `json:"acceptable_csk,omitempty"`
 	AcceptableEvidence []string  `json:"acceptable_evidence,omitempty"`
 	BindingValueHex    string    `json:"binding_value_hex,omitempty"`
@@ -115,7 +115,7 @@ func mainWithCode() int {
 	credentialType := flag.String("credentialType", "x509", "the Credential Type: x509 or wic to enroll, api-key, jwt, psk, wit or private-key to retrieve")
 	hint := flag.String("hint", "", "the Credential Hint: the hint of the registration entry whose identity to acquire, or what the Secret Vault selects by")
 	vaultOriginKey := flag.String("vaultOriginKey", "", "a file holding the signature key of the Secret Vault (PEM or DER SubjectPublicKeyInfo); given, the container must be signed under it")
-	maxValidity := flag.Int("maxValidity", 3600, "the longest validity_seconds of a retrieved credential this Workload accepts")
+	maxValidity := flag.Duration("maxValidity", time.Hour, "the longest validity of a retrieved credential this Workload accepts: a duration with its unit, for example 1h")
 	tee := flag.String("tee", "sev-snp", "the trusted execution environment: sev-snp or tdx")
 	amdChains := flag.String("amdChains", "", "a directory of PEM files, the ASK or ASVK and ARK of AMD per product line, in place of the copies this Workload ships (platform/amdchains)")
 	out := flag.String("out", ".", "the directory the SVID, its key, the bundle and result.json are written to")
@@ -151,7 +151,7 @@ func mainWithCode() int {
 	return 0
 }
 
-func run(ctx context.Context, r *result, socketPath, out, vaultOriginKey, amdChains string, maxValidity int) error {
+func run(ctx context.Context, r *result, socketPath, out, vaultOriginKey, amdChains string, maxValidity time.Duration) error {
 	if err := os.MkdirAll(out, 0o750); err != nil {
 		return err
 	}
@@ -209,7 +209,7 @@ func run(ctx context.Context, r *result, socketPath, out, vaultOriginKey, amdCha
 	r.Mode = initiation.Mode.String()
 	r.FreshnessKind = initiation.FreshnessKind.String()
 	r.HandleHex = hex.EncodeToString(initiation.FreshnessHandle)
-	r.ExpiresIn = initiation.ExpiresIn
+	r.ExpiresInSeconds = initiation.ExpiresIn
 	r.AcceptableCSK = initiation.AcceptableCsk
 	r.AcceptableCEK = initiation.AcceptableCek
 	r.AcceptableEvidence = initiation.AcceptableEvidence
@@ -349,7 +349,7 @@ func enroll(ctx context.Context, r *result, client *workloadapi.Client, plugin p
 // retrieve is Retrieve-Credential: a Credential Encryption Key for a suite
 // the Secret Vault accepts, Evidence bound to its public half, and the
 // container the Secret Vault sealed to it, opened here and nowhere else.
-func retrieve(ctx context.Context, r *result, client *workloadapi.Client, plugin platform.Plugin, initiation *workload.InitiateCredentialAcquisitionResponse, credentialType workload.CredentialType, out string, vaultKey *ecdsa.PublicKey, maxValidity int) error {
+func retrieve(ctx context.Context, r *result, client *workloadapi.Client, plugin platform.Plugin, initiation *workload.InitiateCredentialAcquisitionResponse, credentialType workload.CredentialType, out string, vaultKey *ecdsa.PublicKey, maxValidity time.Duration) error {
 	// 2. The Credential Encryption Key, for the first suite of the Secret Vault
 	// that this Workload supports: the hybrid MLKEM768-P256 first, then P-256.
 	var alg platform.EncryptionAlgorithm
@@ -445,7 +445,7 @@ func retrieve(ctx context.Context, r *result, client *workloadapi.Client, plugin
 		return fmt.Errorf("retrieve: %w", err)
 	}
 	r.OriginVerified = vaultKey != nil && bundle.Origin != nil
-	if err := container.CheckItems(content, false, maxValidity); err != nil {
+	if err := container.CheckItems(content, false, int(maxValidity/time.Second)); err != nil {
 		return fmt.Errorf("retrieve: %w", err)
 	}
 	if len(content.CredentialItems) == 0 {
