@@ -13,6 +13,8 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"github.com/TWI-Unified-Model/tacra/constants"
 )
 
 // ErrVaultUnavailable is the Secret Vault not answering.
@@ -38,7 +40,7 @@ type secretVaultKind interface {
 // Encryption Key of the Workload. The Server forwards both the initiate and
 // the retrieve parts of the flow.
 type secretVault interface {
-	Initiate(ctx context.Context, target string, credentialType CredentialType, hint string) (*vaultInitiation, []byte, error)
+	Initiate(ctx context.Context, target string, credentialType constants.CredentialType, hint string) (*vaultInitiation, []byte, error)
 	Retrieve(ctx context.Context, req *vaultRetrieval) ([]byte, error)
 }
 
@@ -100,28 +102,28 @@ func (e *vaultRefusal) Error() string { return fmt.Sprintf("Secret Vault: %s: %s
 // vaultInitiation is what the Secret Vault answers at initiation, a byte
 // string as unpadded base64url.
 type vaultInitiation struct {
-	FreshnessKind    FreshnessKind             `json:"freshness_kind"`
-	Handle           string                    `json:"handle,omitempty"`
-	ExpiresInSeconds int                       `json:"expires_in,omitempty"` // the lifetime of the Handle, in seconds
-	MaxAgeSeconds    int                       `json:"max_age,omitempty"`    // how old the Evidence may be, in seconds
-	Mode             CredentialAcquisitionMode `json:"mode"`
-	AcceptableCSK    []string                  `json:"acceptable_csk,omitempty"`
-	AcceptableCEK    []string                  `json:"acceptable_cek,omitempty"`
+	FreshnessKind    constants.FreshnessKind             `json:"freshness_kind"`
+	Handle           string                              `json:"handle,omitempty"`
+	ExpiresInSeconds int                                 `json:"expires_in,omitempty"` // the lifetime of the Handle, in seconds
+	MaxAgeSeconds    int                                 `json:"max_age,omitempty"`    // how old the Evidence may be, in seconds
+	Mode             constants.CredentialAcquisitionMode `json:"mode"`
+	AcceptableCSK    []string                            `json:"acceptable_csk,omitempty"`
+	AcceptableCEK    []string                            `json:"acceptable_cek,omitempty"`
 }
 
 // vaultRetrieval is the attest-retrieve request as the conduit forwards it
 // to the Secret Vault: the retrieve part of the flow, with the Evidence and
 // CEKpub.
 type vaultRetrieval struct {
-	FreshnessKind  FreshnessKind  `json:"freshness_kind"`
-	Target         string         `json:"target"`
-	CredentialType CredentialType `json:"credential_type,omitempty"`
-	Handle         string         `json:"handle,omitempty"`
-	CredentialHint string         `json:"credential_hint,omitempty"`
-	Evidence       string         `json:"evidence,omitempty"` // Background Check: the Evidence of the Attester, as it sent it
-	Profile        string         `json:"profile,omitempty"`  // Background Check: the media type of the Evidence
-	EAR            string         `json:"ear,omitempty"`      // Passport: the Attestation Results the Server obtained
-	CEKPub         string         `json:"cek_pub"`
+	FreshnessKind  constants.FreshnessKind  `json:"freshness_kind"`
+	Target         string                   `json:"target"`
+	CredentialType constants.CredentialType `json:"credential_type,omitempty"`
+	Handle         string                   `json:"handle,omitempty"`
+	CredentialHint string                   `json:"credential_hint,omitempty"`
+	Evidence       string                   `json:"evidence,omitempty"` // Background Check: the Evidence of the Attester, as it sent it
+	Profile        string                   `json:"profile,omitempty"`  // Background Check: the media type of the Evidence
+	EAR            string                   `json:"ear,omitempty"`      // Passport: the Attestation Results the Server obtained
+	CEKPub         string                   `json:"cek_pub"`
 }
 
 // jsonVaultKind is the kind of Secret Vault of the proof of concept: the TACRA
@@ -152,7 +154,7 @@ type jsonVault struct {
 	client *http.Client
 }
 
-func (v *jsonVault) Initiate(ctx context.Context, target string, credentialType CredentialType, hint string) (*vaultInitiation, []byte, error) {
+func (v *jsonVault) Initiate(ctx context.Context, target string, credentialType constants.CredentialType, hint string) (*vaultInitiation, []byte, error) {
 	body := map[string]string{"target": target}
 	if credentialType != "" {
 		body["credential_type"] = string(credentialType)

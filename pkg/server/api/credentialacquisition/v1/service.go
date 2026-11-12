@@ -3,9 +3,11 @@ package credentialacquisition
 import (
 	"context"
 	"encoding/hex"
+	"fmt"
 	"strings"
 	"time"
 
+	"github.com/TWI-Unified-Model/tacra/constants"
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	credentialacquisitionv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/credentialacquisition/v1"
@@ -74,6 +76,10 @@ func (s *Service) InitiateCredentialAcquisition(ctx context.Context, req *creden
 		"credential_type":        credentialTypeName(req.CredentialType),
 	})
 
+	if !validCredentialType(req.CredentialType) {
+		return nil, commonapi.MakeErr(log, codes.InvalidArgument, fmt.Sprintf("Credential Type %s is not one of TACRA", req.CredentialType), nil)
+	}
+
 	entry, agentID, err := s.authorizedEntry(ctx, log, req.EntryId)
 	if err != nil {
 		return nil, err
@@ -136,6 +142,8 @@ func (s *Service) EnrollCredential(ctx context.Context, req *credentialacquisiti
 		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing Evidence", nil)
 	case req.Binding == nil:
 		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing Binding", nil)
+	case !validCredentialType(req.CredentialType):
+		return nil, commonapi.MakeErr(log, codes.InvalidArgument, fmt.Sprintf("Credential Type %s is not one of TACRA", req.CredentialType), nil)
 	}
 
 	if err := rpccontext.RateLimit(ctx, 1); err != nil {
@@ -223,6 +231,8 @@ func (s *Service) RetrieveCredential(ctx context.Context, req *credentialacquisi
 		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing Evidence", nil)
 	case req.Binding == nil:
 		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing Binding", nil)
+	case !validCredentialType(req.CredentialType):
+		return nil, commonapi.MakeErr(log, codes.InvalidArgument, fmt.Sprintf("Credential Type %s is not one of TACRA", req.CredentialType), nil)
 	}
 
 	entry, agentID, err := s.authorizedEntry(ctx, log, req.EntryId)
@@ -284,66 +294,70 @@ func (s *Service) authorizedEntry(ctx context.Context, log logrus.FieldLogger, e
 
 // The names of the values of the enums of the Server API.
 
-func credentialTypeName(t types.CredentialType) credentialacquisition.CredentialType {
+func credentialTypeName(t types.CredentialType) constants.CredentialType {
 	switch t {
 	case types.CredentialType_CREDENTIAL_TYPE_X509:
-		return credentialacquisition.CredentialTypeX509
+		return constants.CredentialTypeX509
 	case types.CredentialType_CREDENTIAL_TYPE_WIC:
-		return credentialacquisition.CredentialTypeWIC
+		return constants.CredentialTypeWIC
 	case types.CredentialType_CREDENTIAL_TYPE_WIT:
-		return credentialacquisition.CredentialTypeWIT
+		return constants.CredentialTypeWIT
 	case types.CredentialType_CREDENTIAL_TYPE_JWT:
-		return credentialacquisition.CredentialTypeJWT
+		return constants.CredentialTypeJWT
 	case types.CredentialType_CREDENTIAL_TYPE_API_KEY:
-		return credentialacquisition.CredentialTypeAPIKey
+		return constants.CredentialTypeAPIKey
 	case types.CredentialType_CREDENTIAL_TYPE_PSK:
-		return credentialacquisition.CredentialTypePSK
-	case types.CredentialType_CREDENTIAL_TYPE_PRIVATE_KEY:
-		return credentialacquisition.CredentialTypePrivateKey
+		return constants.CredentialTypePSK
 	default:
 		return ""
 	}
 }
 
-func freshnessKindName(k types.FreshnessKind) credentialacquisition.FreshnessKind {
+// validCredentialType reports whether a Credential Type of the Server API is
+// unspecified or a Credential Type of TACRA.
+func validCredentialType(t types.CredentialType) bool {
+	return t == types.CredentialType_CREDENTIAL_TYPE_UNSPECIFIED || credentialTypeName(t) != ""
+}
+
+func freshnessKindName(k types.FreshnessKind) constants.FreshnessKind {
 	switch k {
 	case types.FreshnessKind_FRESHNESS_KIND_ABSENT_NONE:
-		return credentialacquisition.FreshnessAbsentNone
+		return constants.FreshnessKindAbsentNone
 	case types.FreshnessKind_FRESHNESS_KIND_ABSENT_TIMESTAMP:
-		return credentialacquisition.FreshnessAbsentTimestamp
+		return constants.FreshnessKindAbsentTimestamp
 	case types.FreshnessKind_FRESHNESS_KIND_ABSENT_EPOCH:
-		return credentialacquisition.FreshnessAbsentEpoch
+		return constants.FreshnessKindAbsentEpoch
 	case types.FreshnessKind_FRESHNESS_KIND_PRESENT_NONCE:
-		return credentialacquisition.FreshnessPresentNonce
+		return constants.FreshnessKindPresentNonce
 	case types.FreshnessKind_FRESHNESS_KIND_PRESENT_EPOCH:
-		return credentialacquisition.FreshnessPresentEpoch
+		return constants.FreshnessKindPresentEpoch
 	default:
 		return ""
 	}
 }
 
-func freshnessKindFromName(k credentialacquisition.FreshnessKind) types.FreshnessKind {
+func freshnessKindFromName(k constants.FreshnessKind) types.FreshnessKind {
 	switch k {
-	case credentialacquisition.FreshnessAbsentNone:
+	case constants.FreshnessKindAbsentNone:
 		return types.FreshnessKind_FRESHNESS_KIND_ABSENT_NONE
-	case credentialacquisition.FreshnessAbsentTimestamp:
+	case constants.FreshnessKindAbsentTimestamp:
 		return types.FreshnessKind_FRESHNESS_KIND_ABSENT_TIMESTAMP
-	case credentialacquisition.FreshnessAbsentEpoch:
+	case constants.FreshnessKindAbsentEpoch:
 		return types.FreshnessKind_FRESHNESS_KIND_ABSENT_EPOCH
-	case credentialacquisition.FreshnessPresentNonce:
+	case constants.FreshnessKindPresentNonce:
 		return types.FreshnessKind_FRESHNESS_KIND_PRESENT_NONCE
-	case credentialacquisition.FreshnessPresentEpoch:
+	case constants.FreshnessKindPresentEpoch:
 		return types.FreshnessKind_FRESHNESS_KIND_PRESENT_EPOCH
 	default:
 		return types.FreshnessKind_FRESHNESS_KIND_UNSPECIFIED
 	}
 }
 
-func modeFromName(m credentialacquisition.CredentialAcquisitionMode) types.CredentialAcquisitionMode {
+func modeFromName(m constants.CredentialAcquisitionMode) types.CredentialAcquisitionMode {
 	switch m {
-	case credentialacquisition.ModeEnroll:
+	case constants.CredentialAcquisitionModeEnroll:
 		return types.CredentialAcquisitionMode_CREDENTIAL_ACQUISITION_MODE_ENROLL
-	case credentialacquisition.ModeRetrieve:
+	case constants.CredentialAcquisitionModeRetrieve:
 		return types.CredentialAcquisitionMode_CREDENTIAL_ACQUISITION_MODE_RETRIEVE
 	default:
 		return types.CredentialAcquisitionMode_CREDENTIAL_ACQUISITION_MODE_UNSPECIFIED

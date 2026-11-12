@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/TWI-Unified-Model/tacra/constants"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/grpc/codes"
@@ -48,13 +49,13 @@ func newAcquirerTest(t *testing.T) *acquirerTest {
 	vault := newMockVault(t)
 	log, _ := test.NewNullLogger()
 	policies := map[string]*Policy{
-		testTarget: {Name: testTarget, Mode: ModeEnroll, CredentialTypes: []CredentialType{CredentialTypeX509}, FreshnessKind: FreshnessPresentNonce,
+		testTarget: {Name: testTarget, Mode: constants.CredentialAcquisitionModeEnroll, CredentialTypes: []constants.CredentialType{constants.CredentialTypeX509}, FreshnessKind: constants.FreshnessKindPresentNonce,
 			ExpiresIn: 5 * time.Minute, Verifiers: []string{"veraison"}, AcceptableCSK: []string{"ecdsa-p256-sha256"},
 			Measurements: [][]byte{testMeasurement}},
-		testVaultTarget: {Name: testVaultTarget, Mode: ModeRetrieve, CredentialTypes: []CredentialType{CredentialTypeJWT}, FreshnessKind: FreshnessPresentNonce,
-			ExpiresIn: 5 * time.Minute, RATSModel: ModelBackgroundCheck},
-		testPassportTarget: {Name: testPassportTarget, Mode: ModeRetrieve, CredentialTypes: []CredentialType{CredentialTypeAPIKey}, FreshnessKind: FreshnessPresentNonce,
-			ExpiresIn: 5 * time.Minute, RATSModel: ModelPassport, Verifiers: []string{"veraison"}},
+		testVaultTarget: {Name: testVaultTarget, Mode: constants.CredentialAcquisitionModeRetrieve, CredentialTypes: []constants.CredentialType{constants.CredentialTypeJWT}, FreshnessKind: constants.FreshnessKindPresentNonce,
+			ExpiresIn: 5 * time.Minute, RATSModel: constants.RATSModelBackgroundCheck},
+		testPassportTarget: {Name: testPassportTarget, Mode: constants.CredentialAcquisitionModeRetrieve, CredentialTypes: []constants.CredentialType{constants.CredentialTypeAPIKey}, FreshnessKind: constants.FreshnessKindPresentNonce,
+			ExpiresIn: 5 * time.Minute, RATSModel: constants.RATSModelPassport, Verifiers: []string{"veraison"}},
 	}
 	window := resultsWindow{maxAge: 2 * time.Minute, skew: 5 * time.Second, now: func() time.Time { return now }}
 	a := newAcquirer(log, policies, []string{testProfile}, newTestVerifiers(f, &veraisonKey.PublicKey, window), newTestVaultClient(vault), func() time.Time { return now })
@@ -75,8 +76,8 @@ func TestInitiate(t *testing.T) {
 	t.Run("enroll Target: the Server mints the Handle", func(t *testing.T) {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "x509"})
 		require.NoError(t, err)
-		require.Equal(t, ModeEnroll, res.Mode)
-		require.Equal(t, FreshnessPresentNonce, res.FreshnessKind)
+		require.Equal(t, constants.CredentialAcquisitionModeEnroll, res.Mode)
+		require.Equal(t, constants.FreshnessKindPresentNonce, res.FreshnessKind)
 		require.Len(t, res.Handle, 32)
 		require.Equal(t, uint32(300), res.ExpiresInSeconds)
 		require.Equal(t, []string{"ecdsa-p256-sha256"}, res.AcceptableCSK)
@@ -86,7 +87,7 @@ func TestInitiate(t *testing.T) {
 	t.Run("retrieve Target: the Secret Vault originates the Handle", func(t *testing.T) {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testVaultTarget, CredentialType: "jwt", CredentialHint: "billing"})
 		require.NoError(t, err)
-		require.Equal(t, ModeRetrieve, res.Mode)
+		require.Equal(t, constants.CredentialAcquisitionModeRetrieve, res.Mode)
 		require.Equal(t, x.vault.handle, res.Handle)
 		require.Equal(t, uint32(120), res.ExpiresInSeconds)
 		require.Equal(t, []string{"DHKEM(P-256, HKDF-SHA256)+HKDF-SHA256+AES-256-GCM"}, res.AcceptableCEK)
@@ -123,7 +124,7 @@ func TestEnroll(t *testing.T) {
 	x := newAcquirerTest(t)
 	csr := testCSR(t)
 
-	initiate := func(t *testing.T, credentialType CredentialType, hint string) []byte {
+	initiate := func(t *testing.T, credentialType constants.CredentialType, hint string) []byte {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: credentialType, CredentialHint: hint})
 		require.NoError(t, err)
 		return res.Handle
@@ -131,9 +132,9 @@ func TestEnroll(t *testing.T) {
 	enrollment := func(handle []byte) Enrollment {
 		return Enrollment{
 			EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "x509",
-			FreshnessKind: FreshnessPresentNonce, FreshnessElement: handle, CSR: csr,
+			FreshnessKind: constants.FreshnessKindPresentNonce, FreshnessElement: handle, CSR: csr,
 			Evidence: testEvidence(t, "sev_guest"), EvidenceProfile: testProfile,
-			BindingMethod: BindingMethod, BindingHash: BindingHash,
+			BindingMethod: constants.BindingMethod, BindingHash: constants.BindingHash,
 		}
 	}
 
@@ -204,7 +205,7 @@ func TestEnroll(t *testing.T) {
 	t.Run("the Freshness Kind must be the one named at initiation", func(t *testing.T) {
 		handle := initiate(t, "x509", "")
 		e := enrollment(handle)
-		e.FreshnessKind = FreshnessAbsentNone
+		e.FreshnessKind = constants.FreshnessKindAbsentNone
 		_, err := x.a.Enroll(ctx, e)
 		requireStatus(t, err, codes.InvalidArgument, "differs from present-nonce, the kind named at initiation")
 	})
@@ -306,8 +307,8 @@ func TestRetrieve(t *testing.T) {
 	retrieval := func() Retrieval {
 		return Retrieval{
 			EntryID: testEntryID, AgentID: testAgentID, Target: testVaultTarget, CredentialType: "jwt", CredentialHint: "billing",
-			FreshnessKind: FreshnessPresentNonce, FreshnessElement: res.Handle, CEKPub: []byte("cek-spki"),
-			Evidence: evidence, EvidenceProfile: testProfile, BindingMethod: BindingMethod, BindingHash: BindingHash,
+			FreshnessKind: constants.FreshnessKindPresentNonce, FreshnessElement: res.Handle, CEKPub: []byte("cek-spki"),
+			Evidence: evidence, EvidenceProfile: testProfile, BindingMethod: constants.BindingMethod, BindingHash: constants.BindingHash,
 		}
 	}
 
@@ -316,7 +317,7 @@ func TestRetrieve(t *testing.T) {
 		require.NoError(t, err)
 		require.JSONEq(t, x.vault.container, string(container))
 		require.Equal(t, vaultRetrieval{
-			FreshnessKind: FreshnessPresentNonce, Target: testVaultTarget, CredentialType: "jwt",
+			FreshnessKind: constants.FreshnessKindPresentNonce, Target: testVaultTarget, CredentialType: "jwt",
 			Handle: "dmF1bHQtaGFuZGxlLTAxMjM0NTY3ODlhYmNkZWYwMTI", CredentialHint: "billing",
 			Evidence: b64u(evidence), Profile: testProfile, CEKPub: "Y2VrLXNwa2k",
 		}, x.vault.lastRetrieve)
@@ -354,7 +355,7 @@ func TestRetrieve(t *testing.T) {
 		require.Empty(t, retrieval.Evidence, "the Evidence stays with the Server")
 		require.Empty(t, retrieval.Profile)
 		require.Equal(t, testPassportTarget, retrieval.Target)
-		require.Equal(t, CredentialTypeAPIKey, retrieval.CredentialType)
+		require.Equal(t, constants.CredentialTypeAPIKey, retrieval.CredentialType)
 	})
 	t.Run("passport: a Credential Type not supported, named at retrieval only, is refused after the Attestation Results", func(t *testing.T) {
 		res, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testPassportTarget, CredentialHint: "billing"})
@@ -409,9 +410,9 @@ func TestEnrollPlatformRule(t *testing.T) {
 		require.NoError(t, err)
 		return x.a.Enroll(ctx, Enrollment{
 			EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "x509",
-			FreshnessKind: FreshnessPresentNonce, FreshnessElement: res.Handle, CSR: csr,
+			FreshnessKind: constants.FreshnessKindPresentNonce, FreshnessElement: res.Handle, CSR: csr,
 			Evidence: testEvidence(t, "sev_guest"), EvidenceProfile: testProfile,
-			BindingMethod: BindingMethod, BindingHash: BindingHash,
+			BindingMethod: constants.BindingMethod, BindingHash: constants.BindingHash,
 		})
 	}
 	t.Run("the host of the records is admitted under the waiver", func(t *testing.T) {
