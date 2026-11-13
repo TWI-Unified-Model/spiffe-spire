@@ -350,6 +350,6 @@ require (
 // The TACRA proof of concept: the Workload API and the Server API with
 // attested credential acquisition come from the forks of go-spiffe and
 // spire-api-sdk in this organization until the changes are merged upstream.
-replace github.com/spiffe/go-spiffe/v2 => github.com/TWI-Unified-Model/spiffe-go-spiffe/v2 v2.9.1-0.20261108150357-afc10e7a7e9f
+replace github.com/spiffe/go-spiffe/v2 => github.com/TWI-Unified-Model/spiffe-go-spiffe/v2 v2.9.1-0.20261113031118-188473ba1d59
 
-replace github.com/spiffe/spire-api-sdk => github.com/TWI-Unified-Model/spiffe-spire-api-sdk v1.2.5-0.20261108150641-5e09952350d9
+replace github.com/spiffe/spire-api-sdk => github.com/TWI-Unified-Model/spiffe-spire-api-sdk v1.2.5-0.20261113031118-24aeb0b39819

@@ -102,10 +102,10 @@ github.com/Microsoft/go-winio v0.6.4/go.mod h1:1xl5JXG4ze/m74GH6Dc4Mwxfc3VL5siRV
 github.com/ProtonMail/go-crypto v1.4.1 h1:9RfcZHqEQUvP8RzecWEUafnZVtEvrBVL9BiF67IQOfM=
 github.com/ProtonMail/go-crypto v1.4.1/go.mod h1:e1OaTyu5SYVrO9gKOEhTc+5UcXtTUa+P3uLudwcgPqo=
 github.com/PuerkitoBio/goquery v1.5.1/go.mod h1:GsLWisAFVj4WgDibEWF4pvYnkVQBpKBKeU+7zCJoLcc=
-github.com/TWI-Unified-Model/spiffe-go-spiffe/v2 v2.9.1-0.20261108150357-afc10e7a7e9f h1:uH/91hPAqZSpXSPsXi/In7Kz9YIQjXqLr2ZQTLlgAzA=
-github.com/TWI-Unified-Model/spiffe-go-spiffe/v2 v2.9.1-0.20261108150357-afc10e7a7e9f/go.mod h1:w2CLWKLMTX/PPYUEUPv3ltH0RXsw5S8suwNF46w9/Aw=
-github.com/TWI-Unified-Model/spiffe-spire-api-sdk v1.2.5-0.20261108150641-5e09952350d9 h1:XFpZiNw00HeFkh32kGiGDWTLGhgkzNDIq3jIOGH5r9M=
-github.com/TWI-Unified-Model/spiffe-spire-api-sdk v1.2.5-0.20261108150641-5e09952350d9/go.mod h1:9hXJcMzatM1KwAtBDO3s6HccDCic++/5c2yOc5Iln8Y=
+github.com/TWI-Unified-Model/spiffe-go-spiffe/v2 v2.9.1-0.20261113031118-188473ba1d59 h1:GgJo/jtODxllnyMg+lUNsCFKBZXQYLlNsQhAZSk23mU=
+github.com/TWI-Unified-Model/spiffe-go-spiffe/v2 v2.9.1-0.20261113031118-188473ba1d59/go.mod h1:w2CLWKLMTX/PPYUEUPv3ltH0RXsw5S8suwNF46w9/Aw=
+github.com/TWI-Unified-Model/spiffe-spire-api-sdk v1.2.5-0.20261113031118-24aeb0b39819 h1:M/dzw+gw0zCckEd2sbbI5hAqWHABeAnLmN4S/RiRhVo=
+github.com/TWI-Unified-Model/spiffe-spire-api-sdk v1.2.5-0.20261113031118-24aeb0b39819/go.mod h1:9hXJcMzatM1KwAtBDO3s6HccDCic++/5c2yOc5Iln8Y=
 github.com/TWI-Unified-Model/tacra/constants v0.0.0-20261112212256-c40a1def0f3a h1:ZtpFjye9OFjiGbtmyA37RTiLZZaCXZm88HvtQ6m0j90=
 github.com/TWI-Unified-Model/tacra/constants v0.0.0-20261112212256-c40a1def0f3a/go.mod h1:AhfM+sjCsUmOXbkSDAP7pAwVZeH3MESMWX4HJWfAWTQ=
 github.com/TWI-Unified-Model/tacra/platform v0.0.0-20261108035835-23cbab8e8437 h1:Z+k3nu8WAQly7V9wWs/j8sfg9QwXErD9Z43DoMa8w5g=
