@@ -10,6 +10,7 @@ import (
 	"sync"
 	"testing"
 
+	"github.com/TWI-Unified-Model/tacra/constants"
 	"github.com/stretchr/testify/require"
 )
 
@@ -38,10 +39,10 @@ func newMockVault(t *testing.T) *mockVault {
 			return
 		}
 		_ = json.NewEncoder(w).Encode(vaultInitiation{
-			FreshnessKind:    FreshnessPresentNonce,
+			FreshnessKind:    constants.FreshnessKindPresentNonce,
 			Handle:           base64.RawURLEncoding.EncodeToString(f.handle),
 			ExpiresInSeconds: 120,
-			Mode:             ModeRetrieve,
+			Mode:             constants.CredentialAcquisitionModeRetrieve,
 			AcceptableCEK:    []string{"DHKEM(P-256, HKDF-SHA256)+HKDF-SHA256+AES-256-GCM"},
 		})
 	})
@@ -80,7 +81,7 @@ func TestVaultClient(t *testing.T) {
 		vi, handle, err := v.Initiate(context.Background(), "https://api.example", "jwt", "billing")
 		require.NoError(t, err)
 		require.Equal(t, f.handle, handle)
-		require.Equal(t, ModeRetrieve, vi.Mode)
+		require.Equal(t, constants.CredentialAcquisitionModeRetrieve, vi.Mode)
 		require.Equal(t, 120, vi.ExpiresInSeconds)
 		require.Equal(t, map[string]string{"target": "https://api.example", "credential_type": "jwt", "credential_hint": "billing"}, f.lastInitiate)
 	})
@@ -90,7 +91,7 @@ func TestVaultClient(t *testing.T) {
 		require.Equal(t, map[string]string{"target": "https://api.example"}, f.lastInitiate)
 	})
 	t.Run("retrieve returns the container as the Secret Vault sent it", func(t *testing.T) {
-		req := &vaultRetrieval{FreshnessKind: FreshnessPresentNonce, Target: "https://api.example", Handle: "aGFuZGxl", Evidence: "ZXY", CEKPub: "Y2Vr"}
+		req := &vaultRetrieval{FreshnessKind: constants.FreshnessKindPresentNonce, Target: "https://api.example", Handle: "aGFuZGxl", Evidence: "ZXY", CEKPub: "Y2Vr"}
 		container, err := v.Retrieve(context.Background(), req)
 		require.NoError(t, err)
 		require.JSONEq(t, f.container, string(container))

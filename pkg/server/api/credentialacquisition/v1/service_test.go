@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/TWI-Unified-Model/tacra/constants"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	credentialacquisitionv1 "github.com/spiffe/spire-api-sdk/proto/spire/api/server/credentialacquisition/v1"
@@ -164,8 +165,8 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 	ctx := context.Background()
 
 	st.acquirer.initiateResult = &acquisition.InitiationResult{
-		Mode:               acquisition.ModeEnroll,
-		FreshnessKind:      acquisition.FreshnessPresentNonce,
+		Mode:               constants.CredentialAcquisitionModeEnroll,
+		FreshnessKind:      constants.FreshnessKindPresentNonce,
 		Handle:             testHandle,
 		ExpiresInSeconds:   300,
 		AcceptableCSK:      []string{"ecdsa-p256-sha256"},
@@ -179,6 +180,12 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 	t.Run("entry not authorized for the Agent", func(t *testing.T) {
 		_, err := st.client.InitiateCredentialAcquisition(ctx, &credentialacquisitionv1.InitiateCredentialAcquisitionRequest{EntryId: "entry-2", Target: td.IDString()})
 		spiretest.RequireGRPCStatus(t, err, codes.NotFound, "entry not found or not authorized")
+	})
+	t.Run("a Credential Type that is not one of TACRA", func(t *testing.T) {
+		_, err := st.client.InitiateCredentialAcquisition(ctx, &credentialacquisitionv1.InitiateCredentialAcquisitionRequest{EntryId: "entry-1", Target: td.IDString(), CredentialType: types.CredentialType_CREDENTIAL_TYPE_PRIVATE_KEY})
+		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, "Credential Type CREDENTIAL_TYPE_PRIVATE_KEY is not one of TACRA")
+		_, err = st.client.InitiateCredentialAcquisition(ctx, &credentialacquisitionv1.InitiateCredentialAcquisitionRequest{EntryId: "entry-1", Target: td.IDString(), CredentialType: types.CredentialType(99)})
+		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, "Credential Type 99 is not one of TACRA")
 	})
 	t.Run("a refusal of the acquirer is relayed", func(t *testing.T) {
 		st.acquirer.err = status.Error(codes.Unimplemented, `credential type "jwt" is not supported for target "spiffe://example.org"; supported: x509`)
@@ -235,6 +242,10 @@ func TestEnrollCredential(t *testing.T) {
 		_, err := st.client.EnrollCredential(ctx, &credentialacquisitionv1.EnrollCredentialRequest{EntryId: "entry-1", Csr: csrDER, Evidence: []byte("e")})
 		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, "missing Binding")
 	})
+	t.Run("a Credential Type that is not one of TACRA", func(t *testing.T) {
+		_, err := st.client.EnrollCredential(ctx, &credentialacquisitionv1.EnrollCredentialRequest{EntryId: "entry-1", Csr: csrDER, Evidence: []byte("e"), Binding: binding, CredentialType: types.CredentialType_CREDENTIAL_TYPE_PRIVATE_KEY})
+		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, "Credential Type CREDENTIAL_TYPE_PRIVATE_KEY is not one of TACRA")
+	})
 	t.Run("a refusal of the acquirer is relayed", func(t *testing.T) {
 		st.acquirer.err = status.Error(codes.PermissionDenied, "remote attestation failed: Attestation Results: not affirming: SEVSNP is \"contraindicated\"")
 		defer func() { st.acquirer.err = nil }()
@@ -248,7 +259,7 @@ func TestEnrollCredential(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, &acquisition.Enrollment{
 			EntryID: "entry-1", AgentID: agentID.String(), Target: td.IDString(), CredentialType: "x509", CredentialHint: "internal",
-			FreshnessKind: acquisition.FreshnessPresentNonce, FreshnessElement: testHandle, CSR: csrDER, Evidence: []byte("evidence"),
+			FreshnessKind: constants.FreshnessKindPresentNonce, FreshnessElement: testHandle, CSR: csrDER, Evidence: []byte("evidence"),
 			EvidenceProfile: "application/vnd.veraison.tsm-report+cbor", BindingMethod: "binding-input", BindingHash: "sha512",
 		}, st.acquirer.lastEnrollment)
 
@@ -300,6 +311,10 @@ func TestRetrieveCredential(t *testing.T) {
 		_, err := st.client.RetrieveCredential(ctx, &credentialacquisitionv1.RetrieveCredentialRequest{EntryId: "entry-1", Evidence: []byte("e"), Binding: binding})
 		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, "missing CEKpub")
 	})
+	t.Run("a Credential Type that is not one of TACRA", func(t *testing.T) {
+		_, err := st.client.RetrieveCredential(ctx, &credentialacquisitionv1.RetrieveCredentialRequest{EntryId: "entry-1", CekPub: []byte("cek"), Evidence: []byte("e"), Binding: binding, CredentialType: types.CredentialType_CREDENTIAL_TYPE_PRIVATE_KEY})
+		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, "Credential Type CREDENTIAL_TYPE_PRIVATE_KEY is not one of TACRA")
+	})
 	t.Run("no caller ID", func(t *testing.T) {
 		st.withCallerID = false
 		defer func() { st.withCallerID = true }()
@@ -313,7 +328,7 @@ func TestRetrieveCredential(t *testing.T) {
 		require.Equal(t, container, resp.EncryptedCredentialBundle)
 		require.Equal(t, &acquisition.Retrieval{
 			EntryID: "entry-1", AgentID: agentID.String(), Target: "https://api.example", CredentialType: "jwt",
-			FreshnessKind: acquisition.FreshnessPresentNonce, FreshnessElement: testHandle, CEKPub: []byte("cek"), Evidence: []byte("evidence"),
+			FreshnessKind: constants.FreshnessKindPresentNonce, FreshnessElement: testHandle, CEKPub: []byte("cek"), Evidence: []byte("evidence"),
 			BindingMethod: "binding-input", BindingHash: "sha512",
 		}, st.acquirer.lastRetrieval)
 	})

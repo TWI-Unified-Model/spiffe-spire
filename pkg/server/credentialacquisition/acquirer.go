@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/TWI-Unified-Model/tacra/constants"
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -98,15 +99,15 @@ type Initiation struct {
 	EntryID        string
 	AgentID        string
 	Target         string
-	CredentialType CredentialType
+	CredentialType constants.CredentialType
 	CredentialHint string
 }
 
 // InitiationResult is what the Workload needs to produce its key and its
 // Evidence.
 type InitiationResult struct {
-	Mode               CredentialAcquisitionMode
-	FreshnessKind      FreshnessKind
+	Mode               constants.CredentialAcquisitionMode
+	FreshnessKind      constants.FreshnessKind
 	Handle             []byte
 	ExpiresInSeconds   uint32 // the lifetime of the Handle, in seconds, as the API carries it
 	MaxAgeSeconds      uint32 // how old the Evidence may be, in seconds, as the API carries it
@@ -127,7 +128,7 @@ func (a *Acquirer) Initiate(ctx context.Context, in Initiation) (*InitiationResu
 		return nil, err
 	}
 	ss := session{
-		kind:           FreshnessPresentNonce,
+		kind:           constants.FreshnessKindPresentNonce,
 		target:         in.Target,
 		credentialType: in.CredentialType,
 		hint:           in.CredentialHint,
@@ -136,15 +137,15 @@ func (a *Acquirer) Initiate(ctx context.Context, in Initiation) (*InitiationResu
 		agentID:        in.AgentID,
 	}
 	switch p.Mode {
-	case ModeEnroll:
+	case constants.CredentialAcquisitionModeEnroll:
 		ss.expires = a.sessions.now().Add(p.ExpiresIn)
 		handle, err := a.sessions.mint(ss)
 		if err != nil {
 			return nil, status.Errorf(codes.Internal, "%v", err)
 		}
 		return &InitiationResult{
-			Mode:               ModeEnroll,
-			FreshnessKind:      FreshnessPresentNonce,
+			Mode:               constants.CredentialAcquisitionModeEnroll,
+			FreshnessKind:      constants.FreshnessKindPresentNonce,
 			Handle:             handle,
 			ExpiresInSeconds:   uint32(p.ExpiresIn / time.Second), //nolint:gosec // bounded by the configuration
 			AcceptableCSK:      slices.Clone(p.AcceptableCSK),
@@ -159,11 +160,11 @@ func (a *Acquirer) Initiate(ctx context.Context, in Initiation) (*InitiationResu
 			return nil, vaultError(err)
 		}
 		switch {
-		case vi.Mode != ModeRetrieve:
+		case vi.Mode != constants.CredentialAcquisitionModeRetrieve:
 			return nil, status.Errorf(codes.Unavailable, "the Secret Vault answered mode %q for a Target in retrieve mode", vi.Mode)
-		case vi.FreshnessKind != FreshnessPresentNonce:
+		case vi.FreshnessKind != constants.FreshnessKindPresentNonce:
 			return nil, status.Errorf(codes.Unavailable, "the Secret Vault answered Freshness Kind %q; this Server supports present-nonce", vi.FreshnessKind)
-		case len(handle) < 16 || len(handle) > 64:
+		case len(handle) < constants.PresentNonceHandleMinimumOctets || len(handle) > constants.PresentNonceHandleMaximumOctets:
 			return nil, status.Errorf(codes.Unavailable, "the Secret Vault answered a Handle of %d octets", len(handle))
 		case len(vi.AcceptableCEK) == 0:
 			return nil, status.Error(codes.Unavailable, "the Secret Vault answered no acceptable_cek")
@@ -175,8 +176,8 @@ func (a *Acquirer) Initiate(ctx context.Context, in Initiation) (*InitiationResu
 		ss.expires = a.sessions.now().Add(expiresIn)
 		a.sessions.remember(handle, ss)
 		return &InitiationResult{
-			Mode:               ModeRetrieve,
-			FreshnessKind:      FreshnessPresentNonce,
+			Mode:               constants.CredentialAcquisitionModeRetrieve,
+			FreshnessKind:      constants.FreshnessKindPresentNonce,
 			Handle:             handle,
 			ExpiresInSeconds:   uint32(expiresIn / time.Second), //nolint:gosec // bounded by the answer of the Secret Vault
 			AcceptableCEK:      vi.AcceptableCEK,
@@ -190,9 +191,9 @@ type Enrollment struct {
 	EntryID          string
 	AgentID          string
 	Target           string
-	CredentialType   CredentialType
+	CredentialType   constants.CredentialType
 	CredentialHint   string
-	FreshnessKind    FreshnessKind
+	FreshnessKind    constants.FreshnessKind
 	FreshnessElement []byte
 	CSR              []byte
 	Evidence         []byte
@@ -218,7 +219,7 @@ type EnrollmentResult struct {
 // Handle of the exchange and the Attestation Results, and returns the CSR for
 // which the Credential Authority mints the X509-SVID of the Attester.
 func (a *Acquirer) Enroll(ctx context.Context, in Enrollment) (*EnrollmentResult, error) {
-	p, err := a.policy(in.Target, ModeEnroll)
+	p, err := a.policy(in.Target, constants.CredentialAcquisitionModeEnroll)
 	if err != nil {
 		return nil, err
 	}
@@ -262,9 +263,9 @@ type Retrieval struct {
 	EntryID          string
 	AgentID          string
 	Target           string
-	CredentialType   CredentialType
+	CredentialType   constants.CredentialType
 	CredentialHint   string
-	FreshnessKind    FreshnessKind
+	FreshnessKind    constants.FreshnessKind
 	FreshnessElement []byte
 	CEKPub           []byte
 	Evidence         []byte
@@ -283,7 +284,7 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 	if a.vault == nil {
 		return nil, status.Error(codes.Unavailable, "no Secret Vault is configured")
 	}
-	p, err := a.policy(in.Target, ModeRetrieve)
+	p, err := a.policy(in.Target, constants.CredentialAcquisitionModeRetrieve)
 	if err != nil {
 		return nil, err
 	}
@@ -310,7 +311,7 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 		CEKPub:         base64.RawURLEncoding.EncodeToString(in.CEKPub),
 	}
 	switch p.RATSModel {
-	case ModelPassport:
+	case constants.RATSModelPassport:
 		// The Server asks the Verifier that the policy names and forwards the
 		// Attestation Results; the Secret Vault verifies them under the keys it holds.
 		bv := BindingValue(in.FreshnessElement, in.Target, in.CEKPub)
@@ -342,7 +343,7 @@ func (a *Acquirer) Retrieve(ctx context.Context, in Retrieval) ([]byte, error) {
 	return container, nil
 }
 
-func (a *Acquirer) policy(target string, mode CredentialAcquisitionMode) (*Policy, error) {
+func (a *Acquirer) policy(target string, mode constants.CredentialAcquisitionMode) (*Policy, error) {
 	if target == "" {
 		return nil, status.Error(codes.InvalidArgument, "Target must be specified")
 	}
@@ -362,11 +363,11 @@ func (a *Acquirer) policy(target string, mode CredentialAcquisitionMode) (*Polic
 // is not a Credential Type of TACRA is invalid; one the policy does not support
 // for the Target is refused with Unimplemented, the gRPC code of a feature not
 // supported in this service, and the response names the ones supported.
-func (p *Policy) servesCredentialType(credentialType CredentialType) error {
+func (p *Policy) servesCredentialType(credentialType constants.CredentialType) error {
 	if credentialType == "" {
 		return nil
 	}
-	if !slices.Contains(credentialTypes, credentialType) {
+	if !slices.Contains(constants.CredentialTypes(), credentialType) {
 		return status.Errorf(codes.InvalidArgument, "Credential Type %q is not one of TACRA", credentialType)
 	}
 	if len(p.CredentialTypes) > 0 && !slices.Contains(p.CredentialTypes, credentialType) {
@@ -377,7 +378,7 @@ func (p *Policy) servesCredentialType(credentialType CredentialType) error {
 }
 
 // joinCredentialTypes lists Credential Types for a message.
-func joinCredentialTypes(types []CredentialType) string {
+func joinCredentialTypes(types []constants.CredentialType) string {
 	names := make([]string, 0, len(types))
 	for _, t := range types {
 		names = append(names, string(t))
@@ -386,19 +387,20 @@ func joinCredentialTypes(types []CredentialType) string {
 }
 
 func checkBinding(method, hash string) error {
-	if method != BindingMethod || hash != BindingHash {
+	if method != constants.BindingMethod || hash != constants.BindingHash {
 		return status.Errorf(codes.InvalidArgument, "binding %q with %q is not recognized; this Server accepts %s with %s",
-			method, hash, BindingMethod, BindingHash)
+			method, hash, constants.BindingMethod, constants.BindingHash)
 	}
 	return nil
 }
 
-func (a *Acquirer) consumeSession(kind FreshnessKind, element []byte, target string, credentialType CredentialType, hint, entryID, agentID string) error {
-	if kind != FreshnessPresentNonce {
-		return status.Errorf(codes.InvalidArgument, "Freshness Kind %q differs from %s, the kind named at initiation", kind, FreshnessPresentNonce)
+func (a *Acquirer) consumeSession(kind constants.FreshnessKind, element []byte, target string, credentialType constants.CredentialType, hint, entryID, agentID string) error {
+	if kind != constants.FreshnessKindPresentNonce {
+		return status.Errorf(codes.InvalidArgument, "Freshness Kind %q differs from %s, the kind named at initiation", kind, constants.FreshnessKindPresentNonce)
 	}
-	if len(element) < 16 || len(element) > 64 {
-		return status.Errorf(codes.InvalidArgument, "a present-nonce Handle is 16 to 64 octets, not %d", len(element))
+	if len(element) < constants.PresentNonceHandleMinimumOctets || len(element) > constants.PresentNonceHandleMaximumOctets {
+		return status.Errorf(codes.InvalidArgument, "a present-nonce Handle is %d to %d octets, not %d",
+			constants.PresentNonceHandleMinimumOctets, constants.PresentNonceHandleMaximumOctets, len(element))
 	}
 	if _, err := a.sessions.consume(element, kind, target, credentialType, hint, entryID, agentID); err != nil {
 		return status.Errorf(codes.InvalidArgument, "freshness: %v", err)

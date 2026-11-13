@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/TWI-Unified-Model/tacra/constants"
 	"github.com/spiffe/spire/pkg/server/credentialacquisition"
 	"github.com/stretchr/testify/require"
 )
@@ -79,7 +80,7 @@ plugins {
 	}, ca.Verifier["veraison"])
 	require.Len(t, ca.Target, 1)
 	require.Equal(t, &credentialacquisition.TargetConfig{
-		Mode: "enroll", CredentialTypes: []credentialacquisition.CredentialType{"x509"}, FreshnessKind: "present-nonce", ExpiresIn: "5m",
+		Mode: "enroll", CredentialTypes: []constants.CredentialType{"x509"}, FreshnessKind: "present-nonce", ExpiresIn: "5m",
 		Verifiers: []string{"veraison"}, AcceptableCSK: []string{"ecdsa-p256-sha256"}, Measurements: []string{"a0a1a2"},
 	}, ca.Target["spiffe://example.org"])
 	require.Equal(t, &credentialacquisition.SecretVaultConfig{SecretVaultKind: "json", URL: "https://localhost:9102", CAPath: "/certs/root.crt",

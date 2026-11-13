@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"sync"
 	"time"
+
+	"github.com/TWI-Unified-Model/tacra/constants"
 )
 
 // handleSize is the size of a present-nonce Handle this Server mints: 32
-// octets, within the 16 to 64 octets of TACRA, with 256 bits of entropy.
+// octets, within the bounds of TACRA, with 256 bits of entropy.
 const handleSize = 32
 
 // session is one exchange whose Handle is still valid. An exchange starts
@@ -18,11 +20,11 @@ const handleSize = 32
 // Enroll-Credential or Retrieve-Credential; the session holds what the second
 // call must repeat, and the Workload and Agent the exchange belongs to.
 type session struct {
-	kind           FreshnessKind
+	kind           constants.FreshnessKind
 	target         string
-	credentialType CredentialType
+	credentialType constants.CredentialType
 	hint           string
-	mode           CredentialAcquisitionMode
+	mode           constants.CredentialAcquisitionMode
 	entryID        string
 	agentID        string
 	expires        time.Time
@@ -92,7 +94,7 @@ func (s *sessions) remember(handle []byte, ss session) {
 // Agent attested at initiation. A present-nonce Handle is accepted once: the
 // second call that matches consumes the session, the Server forgets it, and a
 // later call with the same Handle is refused with ErrUnknownHandle.
-func (s *sessions) consume(handle []byte, kind FreshnessKind, target string, credentialType CredentialType, hint, entryID, agentID string) (session, error) {
+func (s *sessions) consume(handle []byte, kind constants.FreshnessKind, target string, credentialType constants.CredentialType, hint, entryID, agentID string) (session, error) {
 	key := hex.EncodeToString(handle)
 	s.mu.Lock()
 	defer s.mu.Unlock()

@@ -37,6 +37,7 @@ import (
 	"slices"
 	"time"
 
+	"github.com/TWI-Unified-Model/tacra/constants"
 	"github.com/TWI-Unified-Model/tacra/platform"
 	"github.com/fxamacker/cbor/v2"
 	"github.com/google/go-sev-guest/abi"
@@ -48,13 +49,8 @@ import (
 	"github.com/spiffe/spire/support/attested-workload/container"
 )
 
-// The TACRA Binding, which the Workload API carries unchanged, and the CSK
-// algorithm of this Workload.
-const (
-	bindingMethod = "binding-input"
-	bindingHash   = "sha512"
-	cskAlgorithm  = "ecdsa-p256-sha256"
-)
+// The CSK algorithm of this Workload.
+const cskAlgorithm = "ecdsa-p256-sha256"
 
 // result is the record of one exchange, written as result.json.
 type result struct {
@@ -112,7 +108,7 @@ func main() {
 func mainWithCode() int {
 	socketPath := flag.String("socketPath", "/tmp/spire-agent/public/api.sock", "path of the Workload API socket of the Agent")
 	target := flag.String("target", "", "the Target of the exchange (required), for example the SPIFFE ID of the trust domain")
-	credentialType := flag.String("credentialType", "x509", "the Credential Type: x509 or wic to enroll, api-key, jwt, psk, wit or private-key to retrieve")
+	credentialType := flag.String("credentialType", "x509", "the Credential Type: x509 or wic to enroll, api-key, jwt, psk or wit to retrieve")
 	hint := flag.String("hint", "", "the Credential Hint: the hint of the registration entry whose identity to acquire, or what the Secret Vault selects by")
 	vaultOriginKey := flag.String("vaultOriginKey", "", "a file holding the signature key of the Secret Vault (PEM or DER SubjectPublicKeyInfo); given, the container must be signed under it")
 	maxValidity := flag.Duration("maxValidity", time.Hour, "the longest validity of a retrieved credential this Workload accepts: a duration with its unit, for example 1h")
@@ -156,13 +152,12 @@ func run(ctx context.Context, r *result, socketPath, out, vaultOriginKey, amdCha
 		return err
 	}
 	credentialType, ok := map[string]workload.CredentialType{
-		"x509":        workload.CredentialType_CREDENTIAL_TYPE_X509,
-		"wic":         workload.CredentialType_CREDENTIAL_TYPE_WIC,
-		"wit":         workload.CredentialType_CREDENTIAL_TYPE_WIT,
-		"jwt":         workload.CredentialType_CREDENTIAL_TYPE_JWT,
-		"api-key":     workload.CredentialType_CREDENTIAL_TYPE_API_KEY,
-		"psk":         workload.CredentialType_CREDENTIAL_TYPE_PSK,
-		"private-key": workload.CredentialType_CREDENTIAL_TYPE_PRIVATE_KEY,
+		"x509":    workload.CredentialType_CREDENTIAL_TYPE_X509,
+		"wic":     workload.CredentialType_CREDENTIAL_TYPE_WIC,
+		"wit":     workload.CredentialType_CREDENTIAL_TYPE_WIT,
+		"jwt":     workload.CredentialType_CREDENTIAL_TYPE_JWT,
+		"api-key": workload.CredentialType_CREDENTIAL_TYPE_API_KEY,
+		"psk":     workload.CredentialType_CREDENTIAL_TYPE_PSK,
 	}[r.CredentialType]
 	if !ok {
 		return fmt.Errorf("the Credential Type %q is not one of TACRA", r.CredentialType)
@@ -216,7 +211,7 @@ func run(ctx context.Context, r *result, socketPath, out, vaultOriginKey, amdCha
 	switch {
 	case initiation.FreshnessKind != workload.FreshnessKind_FRESHNESS_KIND_PRESENT_NONCE:
 		return fmt.Errorf("initiate: Freshness Kind %s, this Workload embeds a present-nonce Handle", initiation.FreshnessKind)
-	case len(initiation.FreshnessHandle) < 16 || len(initiation.FreshnessHandle) > 64:
+	case len(initiation.FreshnessHandle) < constants.PresentNonceHandleMinimumOctets || len(initiation.FreshnessHandle) > constants.PresentNonceHandleMaximumOctets:
 		return fmt.Errorf("initiate: a present-nonce Handle of %d octets", len(initiation.FreshnessHandle))
 	case len(initiation.AcceptableEvidence) > 0 && !slices.Contains(initiation.AcceptableEvidence, platform.TSMReportMediaTypeCBOR):
 		return fmt.Errorf("initiate: the Evidence formats accepted are %v, this Workload produces %s", initiation.AcceptableEvidence, platform.TSMReportMediaTypeCBOR)
@@ -284,7 +279,7 @@ func enroll(ctx context.Context, r *result, client *workloadapi.Client, plugin p
 		FreshnessElement: initiation.FreshnessHandle,
 		Csr:              csr,
 		Evidence:         evidence.Token,
-		Binding:          &workload.EvidenceBinding{Method: bindingMethod, Hash: bindingHash},
+		Binding:          &workload.EvidenceBinding{Method: constants.BindingMethod, Hash: constants.BindingHash},
 	}
 	if len(initiation.AcceptableEvidence) > 0 {
 		enrollment.EvidenceProfile = evidence.MediaType
@@ -409,7 +404,7 @@ func retrieve(ctx context.Context, r *result, client *workloadapi.Client, plugin
 		FreshnessElement: initiation.FreshnessHandle,
 		CekPub:           cekPub,
 		Evidence:         evidence.Token,
-		Binding:          &workload.EvidenceBinding{Method: bindingMethod, Hash: bindingHash},
+		Binding:          &workload.EvidenceBinding{Method: constants.BindingMethod, Hash: constants.BindingHash},
 	}
 	if len(initiation.AcceptableEvidence) > 0 {
 		request.EvidenceProfile = evidence.MediaType

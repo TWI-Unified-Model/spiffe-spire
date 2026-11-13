@@ -16,66 +16,12 @@ import (
 	"fmt"
 	"slices"
 	"time"
+
+	"github.com/TWI-Unified-Model/tacra/constants"
 )
-
-// CredentialAcquisitionMode is a Credential Acquisition Mode of TACRA. The
-// configuration spells it as one of two names, which Validate checks.
-type CredentialAcquisitionMode string
-
-// The Credential Acquisition Modes of TACRA.
-const (
-	ModeEnroll   CredentialAcquisitionMode = "enroll"
-	ModeRetrieve CredentialAcquisitionMode = "retrieve"
-)
-
-// The RATS models a Target in retrieve mode is served in. In the Passport RATS
-// model, the Server, as the conduit, obtains the Attestation Results from the
-// Verifier for the Target and forwards them to the Secret Vault. In the
-// Background Check RATS model, the Server forwards the Evidence, and the Secret
-// Vault asks the Verifier itself.
-type RATSModel string
-
-// The two RATS models.
-const (
-	ModelPassport        RATSModel = "passport"
-	ModelBackgroundCheck RATSModel = "background-check"
-)
-
-// FreshnessKind is a Freshness Kind of TACRA: how the Freshness Element of an
-// exchange is produced, and by whom. The configuration and the API spell it
-// as one of five names.
-type FreshnessKind string
-
-// The Freshness Kinds of TACRA. This Server issues present-nonce Handles.
-const (
-	FreshnessPresentNonce    FreshnessKind = "present-nonce"
-	FreshnessPresentEpoch    FreshnessKind = "present-epoch"
-	FreshnessAbsentTimestamp FreshnessKind = "absent-timestamp"
-	FreshnessAbsentEpoch     FreshnessKind = "absent-epoch"
-	FreshnessAbsentNone      FreshnessKind = "absent-none"
-)
-
-// CredentialType is a Credential Type of TACRA. The configuration and the
-// API spell it as one of the names below.
-type CredentialType string
-
-// The Credential Types of TACRA.
-const (
-	CredentialTypeX509       CredentialType = "x509"
-	CredentialTypeWIC        CredentialType = "wic"
-	CredentialTypeWIT        CredentialType = "wit"
-	CredentialTypeJWT        CredentialType = "jwt"
-	CredentialTypeAPIKey     CredentialType = "api-key"
-	CredentialTypePSK        CredentialType = "psk"
-	CredentialTypePrivateKey CredentialType = "private-key"
-)
-
-// credentialTypes lists the Credential Types of TACRA.
-var credentialTypes = []CredentialType{CredentialTypeX509, CredentialTypeWIC, CredentialTypeWIT, CredentialTypeJWT,
-	CredentialTypeAPIKey, CredentialTypePSK, CredentialTypePrivateKey}
 
 // The Credential Types Enrollment mints.
-var enrollableCredentialTypes = []CredentialType{CredentialTypeX509, CredentialTypeWIC}
+var enrollableCredentialTypes = []constants.CredentialType{constants.CredentialTypeX509, constants.CredentialTypeWIC}
 
 // The CSK algorithms this Server accepts, by the names acceptable_csk carries.
 var supportedCSKAlgorithms = []string{"ecdsa-p256-sha256"}
@@ -133,16 +79,16 @@ type Config struct {
 // TargetConfig is the policy for one Target.
 type TargetConfig struct {
 	// Mode is enroll or retrieve.
-	Mode CredentialAcquisitionMode `hcl:"mode"`
+	Mode constants.CredentialAcquisitionMode `hcl:"mode"`
 
 	// CredentialTypes are the Credential Types served for the Target.
 	// Enrollment serves x509 and wic.
-	CredentialTypes []CredentialType `hcl:"credential_types"`
+	CredentialTypes []constants.CredentialType `hcl:"credential_types"`
 
 	// FreshnessKind is the Freshness Kind of the exchanges of the Target. This
 	// Server issues present-nonce Handles; a Target in retrieve mode uses
 	// the kind its Secret Vault answers.
-	FreshnessKind FreshnessKind `hcl:"freshness_kind"`
+	FreshnessKind constants.FreshnessKind `hcl:"freshness_kind"`
 
 	// ExpiresIn is the lifetime of a Freshness Handle: a duration with its unit,
 	// for example 5m or 300s; the default is 5m, and TACRA recommends at least
@@ -157,7 +103,7 @@ type TargetConfig struct {
 	// RATSModel is, for a Target in retrieve mode, passport or
 	// background-check (the default): who asks the Verifier, this Server or
 	// the Secret Vault.
-	RATSModel RATSModel `hcl:"rats_model"`
+	RATSModel constants.RATSModel `hcl:"rats_model"`
 
 	// AcceptableCSK lists the CSK algorithms the Credential Authority
 	// accepts for enrollment (default ecdsa-p256-sha256).
@@ -227,15 +173,15 @@ type SecretVaultConfig struct {
 // Policy is the parsed policy of one Target.
 type Policy struct {
 	Name                string
-	Mode                CredentialAcquisitionMode
-	CredentialTypes     []CredentialType
-	FreshnessKind       FreshnessKind
+	Mode                constants.CredentialAcquisitionMode
+	CredentialTypes     []constants.CredentialType
+	FreshnessKind       constants.FreshnessKind
 	ExpiresIn           time.Duration
 	Verifiers           []string
 	AcceptableCSK       []string
 	Measurements        [][]byte
 	AllowAnyMeasurement bool
-	RATSModel           RATSModel
+	RATSModel           constants.RATSModel
 }
 
 // Validate returns the parsed policies of a correct configuration, and the
@@ -309,9 +255,9 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 		AllowAnyMeasurement: t.AllowAnyMeasurement,
 	}
 	switch p.Mode {
-	case ModeEnroll:
+	case constants.CredentialAcquisitionModeEnroll:
 		if len(p.CredentialTypes) == 0 {
-			p.CredentialTypes = []CredentialType{CredentialTypeX509}
+			p.CredentialTypes = []constants.CredentialType{constants.CredentialTypeX509}
 		}
 		for _, ct := range p.CredentialTypes {
 			if !slices.Contains(enrollableCredentialTypes, ct) {
@@ -319,9 +265,9 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 			}
 		}
 		if p.FreshnessKind == "" {
-			p.FreshnessKind = FreshnessPresentNonce
+			p.FreshnessKind = constants.FreshnessKindPresentNonce
 		}
-		if p.FreshnessKind != FreshnessPresentNonce {
+		if p.FreshnessKind != constants.FreshnessKindPresentNonce {
 			return fail("freshness_kind %q is not supported; this Server issues present-nonce Handles", p.FreshnessKind)
 		}
 		if len(p.AcceptableCSK) == 0 {
@@ -350,15 +296,15 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 		if len(p.Measurements) == 0 && !p.AllowAnyMeasurement {
 			return fail("measurements is required, or allow_any_measurement for bring-up")
 		}
-	case ModeRetrieve:
+	case constants.CredentialAcquisitionModeRetrieve:
 		if c.SecretVault == nil {
 			return fail("retrieve mode needs a secret_vault")
 		}
 		switch t.RATSModel {
-		case "", ModelBackgroundCheck:
-			p.RATSModel = ModelBackgroundCheck
-		case ModelPassport:
-			p.RATSModel = ModelPassport
+		case "", constants.RATSModelBackgroundCheck:
+			p.RATSModel = constants.RATSModelBackgroundCheck
+		case constants.RATSModelPassport:
+			p.RATSModel = constants.RATSModelPassport
 			if len(p.Verifiers) == 0 {
 				return fail("the Passport RATS model requires one or more Verifiers: the Server obtains the Attestation Results")
 			}
@@ -368,21 +314,21 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 				}
 			}
 		default:
-			return fail("rats_model %q is not %s or %s", t.RATSModel, ModelPassport, ModelBackgroundCheck)
+			return fail("rats_model %q is not %s or %s", t.RATSModel, constants.RATSModelPassport, constants.RATSModelBackgroundCheck)
 		}
 		for _, ct := range p.CredentialTypes {
-			if !slices.Contains(credentialTypes, ct) {
+			if !slices.Contains(constants.CredentialTypes(), ct) {
 				return fail("Credential Type %q is not one of TACRA", ct)
 			}
 		}
-		if p.FreshnessKind != "" && p.FreshnessKind != FreshnessPresentNonce {
+		if p.FreshnessKind != "" && p.FreshnessKind != constants.FreshnessKindPresentNonce {
 			return fail("freshness_kind %q is not supported; the Secret Vault issues present-nonce Handles", p.FreshnessKind)
 		}
-		p.FreshnessKind = FreshnessPresentNonce
+		p.FreshnessKind = constants.FreshnessKindPresentNonce
 	case "":
 		return fail("mode is required: enroll or retrieve")
 	default:
-		return fail("mode %q is not %s or %s", p.Mode, ModeEnroll, ModeRetrieve)
+		return fail("mode %q is not %s or %s", p.Mode, constants.CredentialAcquisitionModeEnroll, constants.CredentialAcquisitionModeRetrieve)
 	}
 	expiresIn, err := parseDuration(t.ExpiresIn, 5*time.Minute)
 	if err != nil {
