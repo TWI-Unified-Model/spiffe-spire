@@ -308,7 +308,7 @@ Agent passes it to the Workload.
 
 | Code | When |
 | --- | --- |
-| `InvalidArgument` | A malformed request: a call of the enroll mode for a Target in retrieve mode or the reverse, a Credential Type that is not one of TACRA, a Freshness Kind or Handle that does not match the initiation, a binding or an Evidence format not accepted, a malformed CSR or one of another algorithm |
+| `InvalidArgument` | A malformed request: a call of the enroll mode for a Target in retrieve mode or the reverse, a Credential Type not defined by TACRA, a Freshness Kind or Handle that does not match the initiation, a binding or an Evidence format not accepted, a malformed CSR or one of another algorithm |
 | `NotFound` | A Target this Server does not serve |
 | `Unimplemented` | A Credential Type this Server does not serve for the Target, named with the ones it serves |
 | `PermissionDenied` | Remote Attestation failed: Attestation Results not affirming, not signed by a Verifier of the policy, or reporting another nonce; a launch not admitted; the platform rule refused |

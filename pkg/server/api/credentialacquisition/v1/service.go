@@ -77,7 +77,7 @@ func (s *Service) InitiateCredentialAcquisition(ctx context.Context, req *creden
 	})
 
 	if !validCredentialType(req.CredentialType) {
-		return nil, commonapi.MakeErr(log, codes.InvalidArgument, fmt.Sprintf("Credential Type %s is not one of TACRA", req.CredentialType), nil)
+		return nil, commonapi.MakeErr(log, codes.InvalidArgument, fmt.Sprintf("Credential Type %s is not defined by TACRA", req.CredentialType), nil)
 	}
 
 	entry, agentID, err := s.authorizedEntry(ctx, log, req.EntryId)
@@ -143,7 +143,7 @@ func (s *Service) EnrollCredential(ctx context.Context, req *credentialacquisiti
 	case req.Binding == nil:
 		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing Binding", nil)
 	case !validCredentialType(req.CredentialType):
-		return nil, commonapi.MakeErr(log, codes.InvalidArgument, fmt.Sprintf("Credential Type %s is not one of TACRA", req.CredentialType), nil)
+		return nil, commonapi.MakeErr(log, codes.InvalidArgument, fmt.Sprintf("Credential Type %s is not defined by TACRA", req.CredentialType), nil)
 	}
 
 	if err := rpccontext.RateLimit(ctx, 1); err != nil {
@@ -232,7 +232,7 @@ func (s *Service) RetrieveCredential(ctx context.Context, req *credentialacquisi
 	case req.Binding == nil:
 		return nil, commonapi.MakeErr(log, codes.InvalidArgument, "missing Binding", nil)
 	case !validCredentialType(req.CredentialType):
-		return nil, commonapi.MakeErr(log, codes.InvalidArgument, fmt.Sprintf("Credential Type %s is not one of TACRA", req.CredentialType), nil)
+		return nil, commonapi.MakeErr(log, codes.InvalidArgument, fmt.Sprintf("Credential Type %s is not defined by TACRA", req.CredentialType), nil)
 	}
 
 	entry, agentID, err := s.authorizedEntry(ctx, log, req.EntryId)

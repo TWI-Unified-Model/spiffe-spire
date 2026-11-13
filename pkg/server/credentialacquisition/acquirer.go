@@ -368,7 +368,7 @@ func (p *Policy) servesCredentialType(credentialType constants.CredentialType) e
 		return nil
 	}
 	if !slices.Contains(constants.CredentialTypes(), credentialType) {
-		return status.Errorf(codes.InvalidArgument, "Credential Type %q is not one of TACRA", credentialType)
+		return status.Errorf(codes.InvalidArgument, "Credential Type %q is not defined by TACRA", credentialType)
 	}
 	if len(p.CredentialTypes) > 0 && !slices.Contains(p.CredentialTypes, credentialType) {
 		return status.Errorf(codes.Unimplemented, "Credential Type %q is not supported for Target %q; supported: %s",

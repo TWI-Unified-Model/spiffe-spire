@@ -101,9 +101,9 @@ func TestInitiate(t *testing.T) {
 		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: "https://other.example"})
 		requireStatus(t, err, codes.NotFound, "unsupported Target")
 	})
-	t.Run("a Credential Type that is not one of TACRA", func(t *testing.T) {
+	t.Run("a Credential Type not defined by TACRA", func(t *testing.T) {
 		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "password"})
-		requireStatus(t, err, codes.InvalidArgument, `Credential Type "password" is not one of TACRA`)
+		requireStatus(t, err, codes.InvalidArgument, `Credential Type "password" is not defined by TACRA`)
 	})
 	t.Run("a Credential Type not supported for the Target", func(t *testing.T) {
 		_, err := x.a.Initiate(ctx, Initiation{EntryID: testEntryID, AgentID: testAgentID, Target: testTarget, CredentialType: "jwt"})

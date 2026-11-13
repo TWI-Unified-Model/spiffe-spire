@@ -160,7 +160,7 @@ func run(ctx context.Context, r *result, socketPath, out, vaultOriginKey, amdCha
 		"psk":     workload.CredentialType_CREDENTIAL_TYPE_PSK,
 	}[r.CredentialType]
 	if !ok {
-		return fmt.Errorf("the Credential Type %q is not one of TACRA", r.CredentialType)
+		return fmt.Errorf("the Credential Type %q is not defined by TACRA", r.CredentialType)
 	}
 	var vaultKey *ecdsa.PublicKey
 	if vaultOriginKey != "" {

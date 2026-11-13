@@ -318,7 +318,7 @@ func (t *TargetConfig) policy(name string, c *Config) (*Policy, error) {
 		}
 		for _, ct := range p.CredentialTypes {
 			if !slices.Contains(constants.CredentialTypes(), ct) {
-				return fail("Credential Type %q is not one of TACRA", ct)
+				return fail("Credential Type %q is not defined by TACRA", ct)
 			}
 		}
 		if p.FreshnessKind != "" && p.FreshnessKind != constants.FreshnessKindPresentNonce {

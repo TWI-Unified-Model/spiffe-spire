@@ -73,11 +73,11 @@ func TestConfigValidate(t *testing.T) {
 			c.Target["spiffe://example.org"].Mode = constants.CredentialAcquisitionModeRetrieve
 			c.Target["spiffe://example.org"].RATSModel = "oracle"
 		}, err: `rats_model "oracle" is not passport or background-check`},
-		{name: "a Credential Type that is not one of TACRA", mutate: func(c *Config) {
+		{name: "a Credential Type not defined by TACRA", mutate: func(c *Config) {
 			c.SecretVault = &SecretVaultConfig{URL: "https://vault.example"}
 			c.Target["spiffe://example.org"].Mode = constants.CredentialAcquisitionModeRetrieve
 			c.Target["spiffe://example.org"].CredentialTypes = []constants.CredentialType{"password"}
-		}, err: `Credential Type "password" is not one of TACRA`},
+		}, err: `Credential Type "password" is not defined by TACRA`},
 		{name: "Verifier without key", mutate: func(c *Config) { c.Verifier["veraison"].EARKeyPath = "" }, err: "ear_key_path is required"},
 		{name: "Verifier without provider", mutate: func(c *Config) { c.Verifier["veraison"].Provider = "" }, err: "provider is required"},
 		{name: "Verifier of an unknown kind", mutate: func(c *Config) { c.Verifier["veraison"].VerifierKind = "attestify" }, err: `kind "attestify" is not one of veraison`},

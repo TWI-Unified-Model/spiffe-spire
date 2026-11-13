@@ -42,8 +42,8 @@ var (
 // A number that the CredentialType enum of the Server API does not define, and
 // the refusal of the Server for it.
 const (
-	credentialTypeNotOfTACRA        = types.CredentialType(99)
-	credentialTypeNotOfTACRARefusal = "Credential Type 99 is not one of TACRA"
+	credentialTypeUnknown        = types.CredentialType(99)
+	credentialTypeUnknownRefusal = "Credential Type 99 is not defined by TACRA"
 )
 
 type mockAcquirer struct {
@@ -188,9 +188,9 @@ func TestInitiateCredentialAcquisition(t *testing.T) {
 		_, err := st.client.InitiateCredentialAcquisition(ctx, &credentialacquisitionv1.InitiateCredentialAcquisitionRequest{EntryId: "entry-2", Target: td.IDString()})
 		spiretest.RequireGRPCStatus(t, err, codes.NotFound, "entry not found or not authorized")
 	})
-	t.Run("a Credential Type that is not one of TACRA", func(t *testing.T) {
-		_, err := st.client.InitiateCredentialAcquisition(ctx, &credentialacquisitionv1.InitiateCredentialAcquisitionRequest{EntryId: "entry-1", Target: td.IDString(), CredentialType: credentialTypeNotOfTACRA})
-		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, credentialTypeNotOfTACRARefusal)
+	t.Run("a Credential Type not defined by TACRA", func(t *testing.T) {
+		_, err := st.client.InitiateCredentialAcquisition(ctx, &credentialacquisitionv1.InitiateCredentialAcquisitionRequest{EntryId: "entry-1", Target: td.IDString(), CredentialType: credentialTypeUnknown})
+		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, credentialTypeUnknownRefusal)
 	})
 	t.Run("a refusal of the acquirer is relayed", func(t *testing.T) {
 		st.acquirer.err = status.Error(codes.Unimplemented, `credential type "jwt" is not supported for target "spiffe://example.org"; supported: x509`)
@@ -247,9 +247,9 @@ func TestEnrollCredential(t *testing.T) {
 		_, err := st.client.EnrollCredential(ctx, &credentialacquisitionv1.EnrollCredentialRequest{EntryId: "entry-1", Csr: csrDER, Evidence: []byte("e")})
 		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, "missing Binding")
 	})
-	t.Run("a Credential Type that is not one of TACRA", func(t *testing.T) {
-		_, err := st.client.EnrollCredential(ctx, &credentialacquisitionv1.EnrollCredentialRequest{EntryId: "entry-1", Csr: csrDER, Evidence: []byte("e"), Binding: binding, CredentialType: credentialTypeNotOfTACRA})
-		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, credentialTypeNotOfTACRARefusal)
+	t.Run("a Credential Type not defined by TACRA", func(t *testing.T) {
+		_, err := st.client.EnrollCredential(ctx, &credentialacquisitionv1.EnrollCredentialRequest{EntryId: "entry-1", Csr: csrDER, Evidence: []byte("e"), Binding: binding, CredentialType: credentialTypeUnknown})
+		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, credentialTypeUnknownRefusal)
 	})
 	t.Run("a refusal of the acquirer is relayed", func(t *testing.T) {
 		st.acquirer.err = status.Error(codes.PermissionDenied, "remote attestation failed: Attestation Results: not affirming: SEVSNP is \"contraindicated\"")
@@ -316,9 +316,9 @@ func TestRetrieveCredential(t *testing.T) {
 		_, err := st.client.RetrieveCredential(ctx, &credentialacquisitionv1.RetrieveCredentialRequest{EntryId: "entry-1", Evidence: []byte("e"), Binding: binding})
 		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, "missing CEKpub")
 	})
-	t.Run("a Credential Type that is not one of TACRA", func(t *testing.T) {
-		_, err := st.client.RetrieveCredential(ctx, &credentialacquisitionv1.RetrieveCredentialRequest{EntryId: "entry-1", CekPub: []byte("cek"), Evidence: []byte("e"), Binding: binding, CredentialType: credentialTypeNotOfTACRA})
-		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, credentialTypeNotOfTACRARefusal)
+	t.Run("a Credential Type not defined by TACRA", func(t *testing.T) {
+		_, err := st.client.RetrieveCredential(ctx, &credentialacquisitionv1.RetrieveCredentialRequest{EntryId: "entry-1", CekPub: []byte("cek"), Evidence: []byte("e"), Binding: binding, CredentialType: credentialTypeUnknown})
+		spiretest.RequireGRPCStatus(t, err, codes.InvalidArgument, credentialTypeUnknownRefusal)
 	})
 	t.Run("no caller ID", func(t *testing.T) {
 		st.withCallerID = false
