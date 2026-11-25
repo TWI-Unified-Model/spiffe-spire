@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	credentialacquisition "github.com/TWI-Unified-Model/tacra/casserver"
 	"github.com/TWI-Unified-Model/tacra/constants"
-	"github.com/spiffe/spire/pkg/server/credentialacquisition"
 	"github.com/stretchr/testify/require"
 )
 

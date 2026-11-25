@@ -6,6 +6,7 @@ import (
 	"net"
 	"time"
 
+	credentialacquisition "github.com/TWI-Unified-Model/tacra/casserver"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
 	common "github.com/spiffe/spire/pkg/common/catalog"
 	"github.com/spiffe/spire/pkg/common/health"
@@ -14,7 +15,6 @@ import (
 	loggerv1 "github.com/spiffe/spire/pkg/server/api/logger/v1"
 	"github.com/spiffe/spire/pkg/server/authpolicy"
 	bundle_client "github.com/spiffe/spire/pkg/server/bundle/client"
-	"github.com/spiffe/spire/pkg/server/credentialacquisition"
 	"github.com/spiffe/spire/pkg/server/endpoints"
 	"github.com/spiffe/spire/pkg/server/endpoints/bundle"
 	"github.com/spiffe/spire/pkg/server/plugin/keymanager"

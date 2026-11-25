@@ -21,6 +21,7 @@ require (
 	github.com/Keyfactor/ejbca-go-client-sdk v1.1.0
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/Microsoft/go-winio v0.6.4
+	github.com/TWI-Unified-Model/tacra/casserver v0.0.0-20261125192050-4834579328ac
 	github.com/TWI-Unified-Model/tacra/constants v0.0.0-20261112212256-c40a1def0f3a
 	github.com/TWI-Unified-Model/tacra/platform v0.0.0-20261108035835-23cbab8e8437
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129
@@ -135,6 +136,7 @@ require (
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.4.0 // indirect
 	github.com/ProtonMail/go-crypto v1.4.1 // indirect
+	github.com/TWI-Unified-Model/tacra/container v0.0.0-20261125191538-48a66e69f609 // indirect
 	github.com/agnivade/levenshtein v1.2.1 // indirect
 	github.com/apache/arrow-go/v18 v18.7.0 // indirect
 	github.com/armon/go-radix v1.0.0 // indirect

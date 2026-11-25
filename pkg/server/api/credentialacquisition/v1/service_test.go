@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	acquisition "github.com/TWI-Unified-Model/tacra/casserver"
 	"github.com/TWI-Unified-Model/tacra/constants"
 	"github.com/sirupsen/logrus/hooks/test"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -21,7 +22,6 @@ import (
 	credentialacquisition "github.com/spiffe/spire/pkg/server/api/credentialacquisition/v1"
 	"github.com/spiffe/spire/pkg/server/api/middleware"
 	"github.com/spiffe/spire/pkg/server/api/rpccontext"
-	acquisition "github.com/spiffe/spire/pkg/server/credentialacquisition"
 	"github.com/spiffe/spire/test/fakes/fakeserverca"
 	"github.com/spiffe/spire/test/grpctest"
 	"github.com/spiffe/spire/test/spiretest"
