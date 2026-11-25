@@ -112,6 +112,8 @@ github.com/TWI-Unified-Model/tacra/constants v0.0.0-20261112212256-c40a1def0f3a 
 github.com/TWI-Unified-Model/tacra/constants v0.0.0-20261112212256-c40a1def0f3a/go.mod h1:AhfM+sjCsUmOXbkSDAP7pAwVZeH3MESMWX4HJWfAWTQ=
 github.com/TWI-Unified-Model/tacra/container v0.0.0-20261125191538-48a66e69f609 h1:TA4XZkpade2uGO4LHTd7cdjHEWTltA3YZ4linreusk0=
 github.com/TWI-Unified-Model/tacra/container v0.0.0-20261125191538-48a66e69f609/go.mod h1:F64R/jsznGcPCwSYfwYTqdWXyj4KQrFtBA7VgHnhRjs=
+github.com/TWI-Unified-Model/tacra/gen/go v0.0.0-20261125191539-051b664cc9a1 h1:PO2a5+m9RsMMFFhFkRQz4ps6NgRfpwLaNPF3SrcYTVo=
+github.com/TWI-Unified-Model/tacra/gen/go v0.0.0-20261125191539-051b664cc9a1/go.mod h1:O6GQ9YISPIggiLl+YS4u8Q5xSQDQ+8GzsEqoJ+is3UE=
 github.com/TWI-Unified-Model/tacra/platform v0.0.0-20261108035835-23cbab8e8437 h1:Z+k3nu8WAQly7V9wWs/j8sfg9QwXErD9Z43DoMa8w5g=
 github.com/TWI-Unified-Model/tacra/platform v0.0.0-20261108035835-23cbab8e8437/go.mod h1:2KKZM5H6YEDEQEfq7B2OLJuWg6iYGLcxosVkZAo0Umk=
 github.com/agnivade/levenshtein v1.2.1 h1:EHBY3UOn1gwdy/VbFwgo4cxecRznFk7fKWN1KOX7eoM=

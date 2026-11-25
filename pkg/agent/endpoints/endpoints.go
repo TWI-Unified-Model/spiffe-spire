@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net"
 
+	caapiv1 "github.com/TWI-Unified-Model/tacra/gen/go/caapi/v1"
 	secret_v3 "github.com/envoyproxy/go-control-plane/envoy/service/secret/v3"
 	"github.com/sirupsen/logrus"
 	workload_pb "github.com/spiffe/go-spiffe/v2/proto/spiffe/workload"
@@ -35,6 +36,7 @@ type Endpoints struct {
 	log               logrus.FieldLogger
 	metrics           telemetry.Metrics
 	workloadAPIServer workload_pb.SpiffeWorkloadAPIServer
+	caapiServer       caapiv1.CredentialAcquisitionServiceServer
 	sdsv3Server       secret_v3.SecretDiscoveryServiceServer
 	healthServer      grpc_health_v1.HealthServer
 	apiNames          string
@@ -83,6 +85,13 @@ func New(c Config) *Endpoints {
 		})
 	}
 
+	// The Credential Acquisition API of TACRA is served with the Workload API
+	// handler, beside the Workload API.
+	var caapiServer caapiv1.CredentialAcquisitionServiceServer
+	if handler, ok := workloadAPIServer.(*workload.Handler); ok {
+		caapiServer = workload.NewCAAPI(handler)
+	}
+
 	var sdsv3Server secret_v3.SecretDiscoveryServiceServer
 	if !c.DisableSDSAPI {
 		sdsv3Server = c.newSDSv3Server(sdsv3.Config{
@@ -106,6 +115,7 @@ func New(c Config) *Endpoints {
 		log:               c.Log,
 		metrics:           c.Metrics,
 		workloadAPIServer: workloadAPIServer,
+		caapiServer:       caapiServer,
 		sdsv3Server:       sdsv3Server,
 		healthServer:      healthServer,
 		apiNames:          apiNames(c.DisableWorkloadAPI, c.DisableSDSAPI),
@@ -131,6 +141,9 @@ func (e *Endpoints) ListenAndServe(ctx context.Context) error {
 
 	if e.workloadAPIServer != nil {
 		workload_pb.RegisterSpiffeWorkloadAPIServer(server, e.workloadAPIServer)
+	}
+	if e.caapiServer != nil {
+		caapiv1.RegisterCredentialAcquisitionServiceServer(server, e.caapiServer)
 	}
 	if e.sdsv3Server != nil {
 		secret_v3.RegisterSecretDiscoveryServiceServer(server, e.sdsv3Server)
