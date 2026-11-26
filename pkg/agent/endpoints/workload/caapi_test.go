@@ -190,12 +190,12 @@ func TestCAAPIEnrollCredential(t *testing.T) {
 	req := &caapiv1.EnrollCredentialRequest{
 		Target:           td.IDString(),
 		CredentialType:   caapiv1.CredentialType_CREDENTIAL_TYPE_X509,
-		CredentialHint:   proto.String("internal"),
+		CredentialHint:   new("internal"),
 		FreshnessKind:    caapiv1.FreshnessKind_FRESHNESS_KIND_PRESENT_NONCE,
 		FreshnessElement: testHandle,
 		Csr:              []byte("csr"),
 		Evidence:         []byte("evidence"),
-		EvidenceProfile:  proto.String("application/psa-attestation-token"),
+		EvidenceProfile:  new("application/psa-attestation-token"),
 	}
 
 	t.Run("a Credential Type that TACRA does not define", func(t *testing.T) {
@@ -262,7 +262,7 @@ func TestCAAPIRetrieveCredential(t *testing.T) {
 		FreshnessElement: testHandle,
 		CekPub:           []byte("cek_pub"),
 		Evidence:         []byte("evidence"),
-		EvidenceProfile:  proto.String("application/psa-attestation-token"),
+		EvidenceProfile:  new("application/psa-attestation-token"),
 	}
 
 	t.Run("a Credential Type that TACRA does not define", func(t *testing.T) {
