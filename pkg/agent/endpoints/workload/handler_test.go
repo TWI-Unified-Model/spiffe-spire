@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	caapiv1 "github.com/TWI-Unified-Model/tacra/gen/go/caapi/v1"
 	"github.com/go-jose/go-jose/v4"
 	"github.com/sirupsen/logrus"
 	"github.com/sirupsen/logrus/hooks/test"
@@ -2322,6 +2323,14 @@ type testParams struct {
 }
 
 func runTest(t *testing.T, params testParams, fn func(ctx context.Context, client workloadPB.SpiffeWorkloadAPIClient)) {
+	runTestOverConn(t, params, func(ctx context.Context, conn grpc.ClientConnInterface) {
+		fn(ctx, workloadPB.NewSpiffeWorkloadAPIClient(conn))
+	})
+}
+
+// runTestOverConn serves the Workload API and CAAPI, as the endpoints of the
+// Agent do, and hands the test the connection of a Workload.
+func runTestOverConn(t *testing.T, params testParams, fn func(ctx context.Context, conn grpc.ClientConnInterface)) {
 	log, logHook := test.NewNullLogger()
 
 	manager := &FakeManager{
@@ -2351,6 +2360,7 @@ func runTest(t *testing.T, params testParams, fn func(ctx context.Context, clien
 
 	server := grpctest.StartServer(t, func(s grpc.ServiceRegistrar) {
 		workloadPB.RegisterSpiffeWorkloadAPIServer(s, handler)
+		caapiv1.RegisterCredentialAcquisitionServiceServer(s, workload.NewCAAPI(handler))
 	}, grpctest.Middleware(
 		middleware.WithLogger(log),
 		middleware.Preprocess(func(ctx context.Context, fullMethod string, req any) (context.Context, error) {
@@ -2366,7 +2376,7 @@ func runTest(t *testing.T, params testParams, fn func(ctx context.Context, clien
 	// any unexpected blocking call is timed out.
 	ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 	defer cancel()
-	fn(ctx, workloadPB.NewSpiffeWorkloadAPIClient(conn))
+	fn(ctx, conn)
 	cancel()
 
 	// Stop the server (draining the handlers)

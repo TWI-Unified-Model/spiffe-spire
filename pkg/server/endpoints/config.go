@@ -8,6 +8,7 @@ import (
 	"net"
 	"time"
 
+	credentialacquisition "github.com/TWI-Unified-Model/tacra/casserver"
 	"github.com/andres-erbsen/clock"
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/bundle/spiffebundle"
@@ -33,7 +34,6 @@ import (
 	"github.com/spiffe/spire/pkg/server/ca/manager"
 	"github.com/spiffe/spire/pkg/server/cache/dscache"
 	"github.com/spiffe/spire/pkg/server/catalog"
-	"github.com/spiffe/spire/pkg/server/credentialacquisition"
 	"github.com/spiffe/spire/pkg/server/endpoints/bundle"
 	"github.com/spiffe/spire/pkg/server/svid"
 )

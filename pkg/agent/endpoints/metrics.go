@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync/atomic"
 
+	caapiv1 "github.com/TWI-Unified-Model/tacra/gen/go/caapi/v1"
 	"github.com/spiffe/spire/pkg/agent/api/rpccontext"
 	"github.com/spiffe/spire/pkg/common/api/middleware"
 	"github.com/spiffe/spire/pkg/common/telemetry"
@@ -11,6 +12,11 @@ import (
 	"github.com/spiffe/spire/pkg/common/telemetry/agent/adminapi"
 	workloadAPITelemetry "github.com/spiffe/spire/pkg/common/telemetry/agent/workloadapi"
 )
+
+// caapiServiceName is the gRPC service of the Credential Acquisition API of
+// TACRA. The Workload API handler serves it, so its connections count as
+// connections of the Workload API.
+var caapiServiceName = caapiv1.CredentialAcquisitionService_ServiceDesc.ServiceName
 
 func withPerServiceConnectionMetrics(metrics telemetry.Metrics) middleware.Middleware {
 	return &connectionMetrics{
@@ -30,7 +36,7 @@ type connectionMetrics struct {
 func (m *connectionMetrics) Preprocess(ctx context.Context, _ string, _ any) (context.Context, error) {
 	if names, ok := rpccontext.Names(ctx); ok {
 		switch names.RawService {
-		case middleware.WorkloadAPIServiceName:
+		case middleware.WorkloadAPIServiceName, caapiServiceName:
 			workloadAPITelemetry.IncrConnectionCounter(m.metrics)
 			workloadAPITelemetry.SetConnectionTotalGauge(m.metrics, atomic.AddInt32(&m.workloadAPIConns, 1))
 		case middleware.EnvoySDSv3ServiceName:
@@ -57,7 +63,7 @@ func (m *connectionMetrics) Preprocess(ctx context.Context, _ string, _ any) (co
 func (m *connectionMetrics) Postprocess(ctx context.Context, _ string, _ bool, _ error) {
 	if names, ok := rpccontext.Names(ctx); ok {
 		switch names.RawService {
-		case middleware.WorkloadAPIServiceName:
+		case middleware.WorkloadAPIServiceName, caapiServiceName:
 			workloadAPITelemetry.SetConnectionTotalGauge(m.metrics, atomic.AddInt32(&m.workloadAPIConns, -1))
 		case middleware.EnvoySDSv3ServiceName:
 			sdsAPITelemetry.SetSDSAPIConnectionTotalGauge(m.metrics, atomic.AddInt32(&m.sdsAPIConns, -1))

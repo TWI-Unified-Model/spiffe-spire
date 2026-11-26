@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"dario.cat/mergo"
+	credentialacquisition "github.com/TWI-Unified-Model/tacra/casserver"
 	"github.com/google/go-cmp/cmp"
 	"github.com/hashicorp/hcl"
 	"github.com/hashicorp/hcl/hcl/ast"
@@ -43,7 +44,6 @@ import (
 	"github.com/spiffe/spire/pkg/server/authpolicy"
 	bundleClient "github.com/spiffe/spire/pkg/server/bundle/client"
 	"github.com/spiffe/spire/pkg/server/ca/manager"
-	"github.com/spiffe/spire/pkg/server/credentialacquisition"
 	"github.com/spiffe/spire/pkg/server/credtemplate"
 	"github.com/spiffe/spire/pkg/server/endpoints/bundle"
 	"github.com/spiffe/spire/pkg/server/plugin/keymanager"
@@ -404,6 +404,22 @@ func mergeInput(fileInput *Config, cliInput *serverConfig) (*Config, error) {
 	}
 
 	return c, nil
+}
+
+// checkCredentialAuthority refuses the settings of the CAS Server Plug-in for
+// a host that has no CA of its own. SPIRE Server mints the X509-SVID with its
+// own CA: a Credential Authority in its configuration would mint nothing, and
+// the name and the validity of a certificate would be read by no one.
+func checkCredentialAuthority(c *credentialacquisition.Config) error {
+	if c.CredentialAuthority != nil {
+		return errors.New("credential_acquisition: credential_authority does not apply: SPIRE Server mints with its own CA")
+	}
+	for name, target := range c.Target {
+		if target != nil && (target.CertificateName != "" || target.CertificateValidity != "") {
+			return fmt.Errorf("credential_acquisition: Target %q: certificate_name and certificate_validity do not apply: SPIRE Server mints with its own CA", name)
+		}
+	}
+	return nil
 }
 
 func NewServerConfig(c *Config, logOptions []log.Option, allowUnknownConfig bool) (*server.Config, error) {
@@ -836,6 +852,9 @@ func newServerConfig(c *Config, logOptions []log.Option, allowUnknownConfig, ski
 
 	if c.Server.Experimental.CredentialAcquisition != nil {
 		if _, err := c.Server.Experimental.CredentialAcquisition.Validate(); err != nil {
+			return nil, err
+		}
+		if err := checkCredentialAuthority(c.Server.Experimental.CredentialAcquisition); err != nil {
 			return nil, err
 		}
 		sc.CredentialAcquisition = c.Server.Experimental.CredentialAcquisition

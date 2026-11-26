@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
+	credentialacquisition "github.com/TWI-Unified-Model/tacra/casserver"
 	"github.com/TWI-Unified-Model/tacra/constants"
-	"github.com/spiffe/spire/pkg/server/credentialacquisition"
 	"github.com/stretchr/testify/require"
 )
 
@@ -91,4 +91,63 @@ plugins {
 	policies, err := ca.Validate()
 	require.NoError(t, err)
 	require.Contains(t, policies, "spiffe://example.org")
+}
+
+// SPIRE Server mints the X509-SVID with its own CA: it refuses the settings of
+// the plug-in for a host that has no CA of its own.
+func TestCredentialAcquisitionRefusesCredentialAuthority(t *testing.T) {
+	const target = "spiffe://example.org"
+	const refused = `credential_acquisition: Target "spiffe://example.org": certificate_name and certificate_validity do not apply: SPIRE Server mints with its own CA`
+	for _, tt := range []struct {
+		name   string
+		change func(*credentialacquisition.Config)
+		expect string
+	}{
+		{
+			name:   "none of them",
+			change: func(*credentialacquisition.Config) {},
+		},
+		{
+			name: "a Credential Authority",
+			change: func(c *credentialacquisition.Config) {
+				c.CredentialAuthority = &credentialacquisition.CredentialAuthorityConfig{
+					URL: "https://ca.example.org", Provisioner: "tacra", ProvisionerKeyPath: "/keys/provisioner.jwk",
+				}
+				c.Target[target].CertificateName = "workload.example.org"
+			},
+			expect: "credential_acquisition: credential_authority does not apply: SPIRE Server mints with its own CA",
+		},
+		{
+			name:   "the name of a certificate",
+			change: func(c *credentialacquisition.Config) { c.Target[target].CertificateName = "workload.example.org" },
+			expect: refused,
+		},
+		{
+			name:   "the validity of a certificate",
+			change: func(c *credentialacquisition.Config) { c.Target[target].CertificateValidity = "1h" },
+			expect: refused,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c := defaultValidConfig()
+			c.Server.Experimental.CredentialAcquisition = &credentialacquisition.Config{
+				AcceptableEvidence: []string{"application/vnd.veraison.tsm-report+cbor"},
+				Verifier: map[string]*credentialacquisition.VerifierConfig{"veraison": {
+					URL: "https://localhost:8443", EARKeyPath: "/keys/veraison.ear.jwk", Provider: "sev_guest", Submods: []string{"SEVSNP"},
+				}},
+				Target: map[string]*credentialacquisition.TargetConfig{target: {
+					Mode: "enroll", Verifiers: []string{"veraison"}, Measurements: []string{"a0a1a2"},
+				}},
+			}
+			tt.change(c.Server.Experimental.CredentialAcquisition)
+
+			sc, err := NewServerConfig(c, nil, false)
+			if tt.expect != "" {
+				require.EqualError(t, err, tt.expect)
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, sc.CredentialAcquisition)
+		})
+	}
 }

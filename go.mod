@@ -21,7 +21,10 @@ require (
 	github.com/Keyfactor/ejbca-go-client-sdk v1.1.0
 	github.com/Masterminds/sprig/v3 v3.3.0
 	github.com/Microsoft/go-winio v0.6.4
+	github.com/TWI-Unified-Model/tacra/casserver v0.0.0-20261125192050-4834579328ac
 	github.com/TWI-Unified-Model/tacra/constants v0.0.0-20261112212256-c40a1def0f3a
+	github.com/TWI-Unified-Model/tacra/container v0.0.0-20261125191538-48a66e69f609
+	github.com/TWI-Unified-Model/tacra/gen/go v0.0.0-20261125191539-051b664cc9a1
 	github.com/TWI-Unified-Model/tacra/platform v0.0.0-20261108035835-23cbab8e8437
 	github.com/andres-erbsen/clock v0.0.0-20160526145045-9e14626cd129
 	github.com/aws/aws-sdk-go-v2 v1.47.4

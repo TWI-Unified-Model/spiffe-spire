@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	credentialacquisition "github.com/TWI-Unified-Model/tacra/casserver"
 	"github.com/andres-erbsen/clock"
 	"github.com/sirupsen/logrus"
 	"github.com/spiffe/go-spiffe/v2/spiffeid"
@@ -34,7 +35,6 @@ import (
 	"github.com/spiffe/spire/pkg/server/ca/manager"
 	"github.com/spiffe/spire/pkg/server/ca/rotator"
 	"github.com/spiffe/spire/pkg/server/catalog"
-	"github.com/spiffe/spire/pkg/server/credentialacquisition"
 	"github.com/spiffe/spire/pkg/server/credtemplate"
 	"github.com/spiffe/spire/pkg/server/credvalidator"
 	"github.com/spiffe/spire/pkg/server/datastore"
