@@ -13,13 +13,13 @@ Server, and the Workload the Attester.
 
 | Role of TACRA | In SPIRE | What it does |
 | --- | --- | --- |
-| Attester | the Workload; `support/attested-workload` is one | generates the key, a CSK to enroll or a CEK to retrieve, produces Evidence bound to that key and to the Target, and calls the Workload API |
+| Attester | the Workload; `support/attested-workload` is one | generates the key, a CSK to enroll or a CEK to retrieve, produces Evidence bound to that key and to the Target, and calls the Workload API, or CAAPI on the same socket |
 | Credential Acquisition System Client | SPIRE Agent | attests the Workload as it does for FetchX509SVID, picks the registration entry whose identity the Workload acquires, and forwards the three calls to the Server |
-| Credential Acquisition System Server | SPIRE Server, package `pkg/server/credentialacquisition` | issues the Freshness Handle in Enrollment, sends the Evidence to a Verifier, verifies the Attestation Results and the binding, and applies the policy for the Target |
+| Credential Acquisition System Server | SPIRE Server, with the CAS Server Plug-in: the `casserver` module of the TACRA repository | issues the Freshness Handle in Enrollment, sends the Evidence to a Verifier, verifies the Attestation Results and the binding, and applies the policy for the Target |
 | Verifier | a RATS Verifier; Veraison today | appraises the Evidence against its reference values and signs the Attestation Results, an EAR |
 | Identity Provider in Enrollment | the CA of SPIRE Server | mints the X509-SVID; the Credential Authority of TACRA and the Server are one process |
-| Identity Provider in Retrieval | the Secret Vault | originates the Freshness Handle and releases the credential, sealed to the CEK of the Workload |
-| Relying Party | the Server in Enrollment, the Secret Vault in Retrieval | applies the Appraisal Policy for Attestation Results of RFC 9334: which launches are admitted, which platform state is accepted |
+| Identity Provider in Retrieval | the Secret Vault | originates the Freshness Handle and releases the credential, sealed to the CEK of the Workload; for a Secret Vault that only holds the credential, as HashiCorp Vault does, the Server originates the Handle, appraises and seals |
+| Relying Party | the Server in Enrollment, the Secret Vault in Retrieval; the Server also in Retrieval from a Secret Vault that only holds the credential | applies the Appraisal Policy for Attestation Results of RFC 9334: which launches are admitted, which platform state is accepted |
 
 The Agent never sees the private key: the Workload generates it and keeps it.
 When the Workload names a Credential Hint, the Agent picks the registration
@@ -49,7 +49,8 @@ HPKE container that the CEK of the Workload alone opens.
 ### The binding
 
 The Evidence carries, as its freshness input (REPORT_DATA of SEV-SNP, REPORTDATA
-of TDX), the SHA-512 digest of the binding input of TACRA:
+of TDX, the nonce of a PSA attestation token), the SHA-512 digest of the binding
+input of TACRA:
 
 ```text
 binding_input = len32(freshness) || freshness || len32(target) || target || len32(subject) || subject
@@ -68,30 +69,48 @@ In Enrollment the Server mints a present-nonce Handle of 32 octets, keeps it for
 Target and the Freshness Kind, and a Credential Type or Credential Hint named at
 initiation; the exchange belongs to the Workload the Agent attested at
 initiation, and a Handle is consumed once. In Retrieval the Secret Vault
-originates the Handle, and the Server forwards it.
+originates the Handle, and the Server forwards it; for a Secret Vault that only
+holds the credential, the Server mints the Handle as in Enrollment.
+
+## CAAPI on the socket of the Workload API
+
+The Agent also serves the Credential Acquisition API of TACRA as its gRPC
+service defines it, `caapi.v1.CredentialAcquisitionService` of the TACRA
+repository, on the socket of the Workload API. A Workload that uses the
+Credential Acquisition Interface of TACRA reaches the Agent with it, as it
+reaches any other Credential Acquisition System Client, and needs no code of
+SPIRE.
+
+| Call of CAAPI | Call of the Workload API |
+| --- | --- |
+| `InitiateRemoteAttestation` | `InitiateCredentialAcquisition` |
+| `EnrollCredential` | `EnrollCredential` |
+| `RetrieveCredential` | `RetrieveCredential` |
+
+Each call is the call of the Workload API with the messages of CAAPI: the
+Agent attests the caller, picks its registration entry and forwards the call
+to the Server in the same way, and the refusals are the same. Three things
+differ, because the messages of CAAPI differ:
+
+- An initiation answers with one CSK algorithm, ECDSA P-256, or with one CEK
+  suite: the hybrid suite of the container when the Server accepts it.
+- An enrollment answers with the X509-SVID and its chain as a PEM certificate
+  bundle, leaf first, without the bundle of the trust domain.
+- A request names no binding: the Agent declares `binding-input` and `sha512`.
+
+The security header of the Workload API, `workload.spiffe.io: true`, is
+required for the methods of the Workload API only: a call of CAAPI carries
+none. The connections of CAAPI count as connections of the Workload API. The
+Agent serves CAAPI whenever it serves the Workload API.
 
 ## Who decides what
 
-The Verifier owns the appraisal of the Evidence. Its reference values say which
-launches it knows; its policy says what is affirming. SPIRE configures no part
-of that policy: it is provisioned at the Verifier.
-
-The Server configures two things. First, which Verifiers it trusts and for
-what: the URL of the challenge-response API, the certificate of the CA that
-signed its TLS certificate, the key that signs its Attestation Results
-(provisioned, never fetched), the Evidence provider it appraises, `sev_guest` or
-`tdx_guest`, and the EAR submodules it speaks for. Attestation Results signed by
-any other key, or older than `ear_max_age`, or without the binding value as
-their nonce, are refused. Second, its own policy as the Relying Party, for each
-Target: the mode, the Credential Types, the Freshness Kind, the CSK algorithms,
-the Verifiers whose results count, the launch measurements admitted, and the
-platform rule.
-
-The Secret Vault keeps a Relying Party policy of its own; the Server is the
-conduit. In the Passport RATS model the Server obtains the Attestation Results
-from the Verifier and forwards them to the Secret Vault. In the Background
-Check RATS model the Server forwards the Evidence, and the Secret Vault asks the
-Verifier itself.
+The Verifier owns the appraisal of the Evidence, the Server its own policy as
+the Relying Party, and the Secret Vault the release of a credential. The part
+of the Server is the CAS Server Plug-in, which SPIRE Server hosts, and
+[the document of the plug-in](https://github.com/TWI-Unified-Model/tacra/blob/main/casserver/README.md)
+describes it: who decides what, each setting, the platform rule, the points of
+extension, the refusals and what is logged.
 
 ## Configuration
 
@@ -141,140 +160,15 @@ server {
 }
 ```
 
-Every duration is a string with its unit, as elsewhere in the configuration of
-SPIRE: `2m`, `90s`.
+The settings are those of the CAS Server Plug-in, and
+[its document](https://github.com/TWI-Unified-Model/tacra/blob/main/casserver/README.md#configuration)
+describes each of them. Every duration is a string with its unit, as elsewhere
+in the configuration of SPIRE: `2m`, `90s`.
 
-| `credential_acquisition` | Description | Default |
-| --- | --- | --- |
-| `acceptable_evidence` | The Evidence formats the Server forwards, by media type | required |
-| `ear_max_age` | How old Attestation Results may be | `2m` |
-| `ear_skew` | How far in the future Attestation Results may be dated | `5s` |
-| `client_cert_path`, `client_key_path` | The certificate and key the Server presents to the Verifiers and the Secret Vault when they require mutual TLS | none |
-| `platform_rule_path` | The JSON file with the platform rule, see below | none: only the debug and migration bits of the guest policy are refused |
-| `sevsnp_products_path` | The JSON file with the product data of AMD for SEV-SNP, see below | the copy SPIRE ships |
-| `verifier "<name>"` | A Verifier the Server trusts, see below | at least one |
-| `target "<name>"` | The policy for a Target, see below | at least one |
-| `secret_vault` | The Secret Vault of the Targets in retrieve mode | required when a Target is in retrieve mode |
-
-| `verifier` | Description |
-| --- | --- |
-| `kind` | The kind of Verifier, how the Server sends it Evidence and reads its Attestation Results: `veraison`, the default and the one kind for now |
-| `url` | The base URL of the API of the Verifier; for `veraison`, its challenge-response API |
-| `ca_path` | The certificate of the CA that signed the TLS certificate of the Verifier |
-| `provider` | The TSM report provider of the Evidence this Verifier appraises: `sev_guest` or `tdx_guest` |
-| `ear_key_path` | For `veraison`: the public key that signs the Attestation Results, an EC P-256 JWK or a PEM public key, provisioned |
-| `submods` | For `veraison`: the EAR submodules it speaks for, each of a platform family, `SEVSNP` or `TDX` |
-
-| `target` | Description | Default |
-| --- | --- | --- |
-| `mode` | `enroll` or `retrieve` | required |
-| `credential_types` | The Credential Types served for this Target | required |
-| `freshness_kind` | The Freshness Kind; the Server issues `present-nonce` Handles | `present-nonce` |
-| `expires_in` | The lifetime of a Freshness Handle; TACRA recommends at least `1m` | `5m` |
-| `verifiers` | The Verifiers whose Attestation Results count for this Target | required |
-| `acceptable_csk` | The CSK algorithms accepted in Enrollment; `ecdsa-p256-sha256` is supported | all supported |
-| `measurements` | The launch measurements admitted, or `allow_any_measurement = true` to leave that decision to the Verifier | one of the two is required in enroll mode |
-| `rats_model` | For retrieve mode, `passport` or `background-check` | `background-check` |
-
-| `secret_vault` | Description |
-| --- | --- |
-| `kind` | The kind of Secret Vault, how the Server forwards the initiate and the retrieve parts of the flow: `json`, the TACRA calls as JSON over HTTPS, the default and the one kind for now |
-| `url` | The base URL of the API of the Secret Vault |
-| `ca_path` | The certificate of the CA that signed the TLS certificate of the Secret Vault |
-| `client_cert_path`, `client_key_path` | A certificate and key presented to the Secret Vault in place of the ones above |
-
-## The platform rule
-
-Affirming Attestation Results say that the Evidence matched the reference
-values of the Verifier. They do not say that the platform is one this Server
-accepts: that is the platform rule, applied by the Server to the fields the
-Verifier annotated.
-
-```json
-{
-  "sevsnp": {
-    "require_machine_identity": false,
-    "allowed_products": ["Milan", "Genoa", "Turin"],
-    "tcb_floors": {
-      "Milan": {"bl": 4, "snp": 29, "ucode": 222},
-      "Genoa": {"snp": 28, "ucode": 86},
-      "Turin": {"snp": 5, "ucode": 81}
-    },
-    "check_committed_tcb": true,
-    "smt": "allow-with-microcode-floor",
-    "required_mitigation_bits": {
-      "Milan": {"1": "AMD-SB-3020 (CVE-2025-0033)", "4": "AMD-SB-3034 (CVE-2025-54510)"},
-      "Genoa": {"1": "AMD-SB-3020 (CVE-2025-0033)"},
-      "Turin": {"0": "AMD-SB-3020 (CVE-2025-0033)"}
-    },
-    "required_platform_info_bits": {
-      "Milan": {"5": "AMD-SB-3015 (BadRAM, CVE-2024-21944): ALIAS_CHECK_COMPLETE"}
-    },
-    "mitigation_waivers": {"Milan": {"4": "admitted without bit 4, AMD-SB-3034"}}
-  },
-  "tdx": {"td_attributes_refused": "0x2000fff0"}
-}
-```
-
-For SEV-SNP the rule names the machines admitted (by CHIP_ID, or any machine
-that is named), the product lines admitted (from the CPUID family and model of
-the report), the floor of each TCB component per product line, applied to
-REPORTED_TCB and, when asked, to COMMITTED_TCB, whether SMT is allowed, the
-mitigation bits that must be set in both mitigation vectors with the reason
-each refusal gives, the PLATFORM_INFO bits required, and the waivers. The guest
-policy is the POLICY field of the report, the launch settings of the guest:
-its debug and migration bits are refused with or without a rule. For TDX the
-rule names the TD ATTRIBUTES bits refused.
-
-The rule has one entry per platform family, keyed by the name of the module of
-the Server for the family: `sevsnp`, `tdx`. A module is the counterpart on the
-Server side of the platform plug-in of the Attester: it names the EAR submodule
-the Verifier annotates for the family, parses and validates the entry, and
-applies it to the Attestation Results. A family without an entry is refused. A
-new family, CCA for example, is a new module; the rest of the Server does not
-change.
-
-The module for SEV-SNP reads the report with the product data of AMD: which
-product line a CPUID family and extended model names, and the byte of each
-component in TCB_VERSION. That data grows with every product line AMD ships, so
-it is a JSON file under version control, not code: the copy SPIRE ships,
-[sevsnp_products.json](/pkg/server/credentialacquisition/sevsnp_products.json),
-or the file `sevsnp_products_path` names, in the same format.
-
-```json
-{
-  "products": [
-    {
-      "name": "Turin",
-      "cpuid": [{"family": "0x1A", "extended_model": "0x0"}, {"family": "0x1A", "extended_model": "0x1"}],
-      "tcb_layout": {"fmc": 0, "bl": 1, "tee": 2, "snp": 3, "ucode": 7},
-      "source": "AMD 57230 Rev. 1.05, Table 4; AMD 56860 Rev. 1.59, Table 4"
-    }
-  ]
-}
-```
-
-A product line without a layout is not decoded, so the rule refuses it; an
-operator who has the layout adds it to the file. A rule that names a product
-line the data does not have is refused when the Server starts.
-
-## Points of extension
-
-The Server has three points of extension, each a list of implementations
-behind one interface, named in the configuration or in the rule file. The data
-that grows on its own schedule, the product lines of AMD and their chains, is
-in files under version control, not in the code.
-
-| Point | Named by | Implementations |
-| --- | --- | --- |
-| Platform family: how the claims of a family are checked against the platform rule | the key of the entry in the rule file | `sevsnp`, `tdx` |
-| Verifier kind: how Evidence is sent to a Verifier and its Attestation Results are verified and read | `kind` of a `verifier` | `veraison` |
-| Secret Vault kind: how the initiate and the retrieve parts of the flow are forwarded | `kind` of `secret_vault` | `json` |
-
-The kind is chosen by the operator and confirmed by the Server, not guessed
-from what arrives: a Verifier of kind `veraison` reads the profile an EAR names
-in `eat_profile`, and refuses Attestation Results that name another, with both
-names in the refusal.
+SPIRE Server mints the X509-SVID with its own CA. It refuses a configuration
+with a `credential_authority`, or with a `certificate_name` or a
+`certificate_validity` for a Target: those settings are for a host of the
+plug-in that has no CA of its own.
 
 ## Logging
 
@@ -295,29 +189,16 @@ line comes from.
   the call go through `AddRPCAuditFields`, and `AuditRPC` emits the audit line.
   A success is logged at debug with the fields of the result, as `MintX509SVID`
   does.
-- The Server package: a refusal is a gRPC status that names the reason, and is
-  not logged again where it is returned. The package logs at warning what the
-  status does not carry, Attestation Results refused and admissions under a
-  waiver of the platform rule, and the configuration at info when the Server
-  starts.
+- The CAS Server Plug-in: a refusal is a gRPC status that names the reason, and
+  is not logged again where it is returned. Its document says what the plug-in
+  logs itself.
 
 ## Refusals
 
-The Server answers a refusal with the gRPC code that names its reason, and the
-Agent passes it to the Workload.
-
-| Code | When |
-| --- | --- |
-| `InvalidArgument` | A malformed request: a call of the enroll mode for a Target in retrieve mode or the reverse, a Credential Type not defined by TACRA, a Freshness Kind or Handle that does not match the initiation, a binding or an Evidence format not accepted, a malformed CSR or one of another algorithm |
-| `NotFound` | A Target this Server does not serve |
-| `Unimplemented` | A Credential Type this Server does not serve for the Target, named with the ones it serves |
-| `PermissionDenied` | Remote Attestation failed: Attestation Results not affirming, not signed by a Verifier of the policy, or reporting another nonce; a launch not admitted; the platform rule refused |
-| `Unavailable` | No Verifier or Secret Vault could be reached, or none is configured for the call |
-| `ResourceExhausted` | The Secret Vault asked the Server to slow down |
-| `Internal` | A failure inside the Server, or a Secret Vault answer that breaks the contract |
-
-A refusal of the Secret Vault is relayed with the gRPC code of its HTTP status
-and the reason it gives.
+The Server answers a refusal of the plug-in with the gRPC code that names its
+reason, and the Agent passes it to the Workload. The codes and their reasons
+are in
+[the document of the plug-in](https://github.com/TWI-Unified-Model/tacra/blob/main/casserver/README.md#refusals).
 
 ## The attested Workload
 
@@ -346,6 +227,7 @@ or VLEK.
 
 The Server issues present-nonce Handles; a Target in retrieve mode uses the
 Freshness Kind its Secret Vault answers. Enrollment mints `x509`; `wic` is named
-and not minted yet. The Server speaks to one kind of Verifier, `veraison`, and one kind of Secret
-Vault, `json`; another is a new implementation at its point of extension. The
-policy is a table keyed by the Target name.
+and not minted yet. The Server speaks to one kind of Verifier, `veraison`, and
+to two kinds of Secret Vault, `json` and `hashicorp`; another is a new
+implementation at its point of extension in the plug-in. The policy is a table
+keyed by the Target name.
